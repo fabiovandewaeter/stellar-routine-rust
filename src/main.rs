@@ -54,9 +54,6 @@ fn setup_system(
     mut commands: Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
-    // mut structure_manager: ResMut<StructureManager>,
-    // mut chunk_manager: ResMut<ChunkManager>,
-    // mut map_manager: ResMut<MapManager>,
 ) {
     let mut orthographic_projection = OrthographicProjection::default_2d();
     orthographic_projection.scale *= 0.8;
@@ -76,7 +73,7 @@ fn setup_system(
         },
         Sprite::from_image(player_texture_handle.clone()),
         // Transform::from_translation(world_pos.extend(0.0)),
-        Position { x: 5.0, y: 0.0 },
+        Position { x: 0.0, y: 0.0 },
         UnitUnitCollisions,
         Player,
     ));

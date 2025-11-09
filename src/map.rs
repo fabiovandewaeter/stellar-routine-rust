@@ -99,22 +99,8 @@ pub fn spawn_one_chunk(
     mut map_manager: ResMut<MapManager>,
 ) -> () {
     let mut rng = rand::rng();
-
-    let tile_display_size = UVec2::splat(TILE_SIZE.x as u32);
-    let tile_data: Vec<Option<TileData>> = (0..CHUNK_SIZE.element_product())
-        .map(|_| rng.random_range(0..5))
-        .map(|i| {
-            if i == 0 {
-                None
-            } else {
-                Some(TileData::from_tileset_index(i - 1))
-            }
-        })
-        .collect();
-
-    let mut structure_manager = StructureManager::default();
-
     let chunk_pos = ChunkPosition { x: 0, y: 0 };
+    let mut structure_manager = StructureManager::default();
     for x in 0..CHUNK_SIZE.x {
         for y in 0..CHUNK_SIZE.y {
             let local_grid_pos = GridPosition {
@@ -127,8 +113,8 @@ pub fn spawn_one_chunk(
             // && (chunk_pos.x > 0 || chunk_pos.x < 0)
             // && (chunk_pos.y > 0 || chunk_pos.y < 0)
             {
-                let grid_pos = local_tile_pos_to_rounded_tile(local_grid_pos, chunk_pos);
-                let tilemap_world_pos = rounded_tile_pos_to_world(grid_pos);
+                let grid_pos = local_grid_pos_to_grid_pos(local_grid_pos, chunk_pos);
+                let tilemap_world_pos = grid_pos_to_absolute_pos(grid_pos);
                 let transform = Transform::from_translation(Vec3::new(
                     tilemap_world_pos.x,
                     tilemap_world_pos.y,
@@ -149,6 +135,31 @@ pub fn spawn_one_chunk(
             }
         }
     }
+
+    let tile_display_size = UVec2::splat(TILE_SIZE.x as u32);
+    let chunk_center_x = (chunk_pos.x as f32 * CHUNK_SIZE.x as f32 + CHUNK_SIZE.x as f32 / 2.0)
+        * tile_display_size.x as f32;
+    let chunk_center_y = -(chunk_pos.y as f32 * CHUNK_SIZE.y as f32 + CHUNK_SIZE.y as f32 / 2.0)
+        * tile_display_size.y as f32;
+
+    let chunk_transform = Transform::from_translation(Vec3::new(
+        chunk_center_x,
+        chunk_center_y,
+        //STRUCTURE_LAYER_LEVEL, // ou TILE_LAYER_LEVEL si tu veux que les tiles soient derrière/avant
+        -1.0,
+    ));
+
+    let tile_data: Vec<Option<TileData>> = (0..CHUNK_SIZE.element_product())
+        // .map(|_| rng.random_range(0..5))
+        .map(|_| rng.random_range(1..2))
+        .map(|i| {
+            if i == 0 {
+                None
+            } else {
+                Some(TileData::from_tileset_index(i - 1))
+            }
+        })
+        .collect();
     let chunk_entity = commands
         .spawn((
             TilemapChunk {
@@ -159,6 +170,7 @@ pub fn spawn_one_chunk(
             },
             TilemapChunkTileData(tile_data),
             structure_manager,
+            chunk_transform,
         ))
         .id();
     map_manager.chunks.insert(chunk_pos, chunk_entity);
@@ -178,269 +190,38 @@ fn update_tileset_image(
     }
 }
 
-// pub fn spawn_chunk(
-//     commands: &mut Commands,
-//     asset_server: &AssetServer,
-//     mut structure_manager: &mut StructureManager,
-//     chunk_pos: ChunkPos,
-//     map_id: MapId,
-// ) -> Entity {
-//     let tilemap_entity = commands.spawn_empty().id();
-//     let mut tile_storage = TileStorage::empty(CHUNK_SIZE.into());
-//     let mut rng = rand::rng();
-
-//     // Collecte les positions des structures à créer
-//     let mut structures_to_spawn = Vec::new();
-
-//     // Spawn the elements of the tilemap.
-//     for x in 0..CHUNK_SIZE.x {
-//         for y in 0..CHUNK_SIZE.y {
-//             let local_tile_pos = TilePos { x, y };
-//             let tile_entity = commands
-//                 .spawn(TileBundle {
-//                     position: local_tile_pos,
-//                     tilemap_id: TilemapId(tilemap_entity),
-//                     texture_index: TileTextureIndex(0),
-//                     ..Default::default()
-//                 })
-//                 .id();
-
-//             let is_wall = rng.random_bool(0.2);
-//             if is_wall
-//                 && (chunk_pos.x > 0 || chunk_pos.x < 0)
-//                 && (chunk_pos.y > 0 || chunk_pos.y < 0)
-//             {
-//                 let local_tile_pos = GridPosition {
-//                     x: local_tile_pos.x as i32,
-//                     y: local_tile_pos.y as i32,
-//                 };
-//                 let rounded_tile_pos = local_tile_pos_to_rounded_tile(local_tile_pos, chunk_pos);
-//                 structures_to_spawn.push(rounded_tile_pos);
-//             }
-
-//             match commands.get_entity(tilemap_entity) {
-//                 Ok(mut entity_command) => entity_command.add_child(tile_entity),
-//                 Err(_) => todo!(),
-//             };
-
-//             tile_storage.set(&local_tile_pos, tile_entity);
-//         }
-//     }
-
-//     // Calcule la position du tilemap dans le monde
-//     // let rounded_tile_pos = rounded_chunk_pos_to_rounded_tile(&chunk_pos);
-//     let rounded_tile_pos = GridPosition::from(chunk_pos);
-//     let tilemap_world_pos = rounded_tile_pos_to_world(rounded_tile_pos);
-//     let tilemap_transform = Transform::from_translation(Vec3::new(
-//         tilemap_world_pos.x,
-//         tilemap_world_pos.y,
-//         TILE_LAYER_LEVEL,
-//     ));
-
-//     let image_handles = vec![
-//         asset_server.load("tiles/grass.png"),
-//         asset_server.load("tiles/stone.png"),
-//     ];
-
-//     // Configure le tilemap
-//     match commands.get_entity(tilemap_entity) {
-//         Ok(mut entity_commands) => entity_commands.insert(TilemapBundle {
-//             grid_size: TILE_SIZE.into(),
-//             size: CHUNK_SIZE.into(),
-//             storage: tile_storage,
-//             texture: TilemapTexture::Vector(image_handles),
-//             tile_size: TILE_SIZE,
-//             transform: tilemap_transform,
-//             render_settings: TilemapRenderSettings {
-//                 render_chunk_size: RENDER_CHUNK_SIZE,
-//                 ..Default::default()
-//             },
-//             ..Default::default()
-//         }),
-//         Err(_) => todo!(),
-//     };
-
-//     // Spawn les structures APRÈS avoir configuré le tilemap
-//     // et les attache directement au tilemap
-//     for rounded_tile_pos in structures_to_spawn {
-//         let wall_entity = commands
-//             .spawn((
-//                 Structure,
-//                 Wall,
-//                 Sprite::from_image(asset_server.load("structures/wall.png")),
-//                 CurrentMap { map_id },
-//             ))
-//             .id();
-
-//         spawn_structure_in_chunk(
-//             commands,
-//             &wall_entity,
-//             &mut structure_manager,
-//             tilemap_entity,
-//             rounded_tile_pos,
-//             tilemap_world_pos,
-//         );
-//     }
-
-//     // Ajoutez aussi CurrentMap au tilemap lui-même
-//     commands
-//         .entity(tilemap_entity)
-//         .insert(CurrentMap { map_id });
-
-//     tilemap_entity
-// }
-
-// fn spawn_structure_in_chunk(
-//     commands: &mut Commands,
-//     structure_entity: &Entity,
-//     structure_manager: &mut StructureManager,
-//     tilemap_entity: Entity,
-//     rounded_tile_pos: GridPosition,
-//     tilemap_world_pos: Vec2,
-// ) {
-//     // Calcule la position absolue de la structure
-//     let structure_world_pos = rounded_tile_pos_to_world(rounded_tile_pos);
-
-//     // Calcule la position RELATIVE au tilemap
-//     let relative_pos = structure_world_pos - tilemap_world_pos;
-
-//     let transform = Transform::from_translation(Vec3::new(
-//         relative_pos.x,
-//         relative_pos.y,
-//         STRUCTURE_LAYER_LEVEL - TILE_LAYER_LEVEL, // Z relatif
-//     ));
-
-//     // TODO: use GridPosition instead of Transform there
-//     let global_grid_pos = GridPosition {
-//         x: rounded_tile_pos.x,
-//         y: rounded_tile_pos.y,
-//     };
-
-//     match commands.get_entity(*structure_entity) {
-//         Ok(mut entity_command) => {
-//             entity_command.insert(transform);
-//             entity_command.insert(global_grid_pos);
-//         }
-//         Err(_) => todo!(),
-//     };
-
-//     // Attache la structure au tilemap, pas à une tile individuelle
-//     match commands.get_entity(tilemap_entity) {
-//         Ok(mut entity_command) => entity_command.add_child(*structure_entity),
-//         Err(_) => todo!(),
-//     };
-
-//     // Enregistre la structure dans le manager
-//     structure_manager
-//         .structures
-//         .insert(rounded_tile_pos, *structure_entity);
-// }
-
-// // add transform to structure_entity and add it to structure_manager
-// pub fn place_structure(
-//     commands: &mut Commands,
-//     asset_server: &Res<AssetServer>, // Ajouté pour pouvoir spawner le chunk
-//     structure_entity: &Entity,
-//     structure_manager: &mut StructureManager,
-//     chunk_manager: &mut ChunkManager, // Maintenant mutable
-//     rounded_tile_pos: GridPosition,
-//     map_id: MapId,
-// ) {
-//     let rounded_chunk_pos = rounded_tile_pos_to_rounded_chunk(rounded_tile_pos);
-
-//     // Charger le chunk s'il n'existe pas
-//     if !chunk_manager
-//         .spawned_chunks
-//         .contains_key(&rounded_chunk_pos)
-//     {
-//         let entity = spawn_chunk(
-//             commands,
-//             asset_server,
-//             structure_manager,
-//             rounded_chunk_pos,
-//             map_id,
-//         );
-//         chunk_manager
-//             .spawned_chunks
-//             .insert(rounded_chunk_pos, entity);
-//     }
-
-//     // Maintenant le chunk existe forcément
-//     if let Some(&tilemap_entity) = chunk_manager.spawned_chunks.get(&rounded_chunk_pos) {
-//         let tilemap_world_pos =
-//             rounded_tile_pos_to_world(rounded_chunk_pos_to_rounded_tile(rounded_chunk_pos));
-
-//         spawn_structure_in_chunk(
-//             commands,
-//             structure_entity,
-//             structure_manager,
-//             tilemap_entity,
-//             rounded_tile_pos,
-//             tilemap_world_pos,
-//         );
-//     } else {
-//         panic!();
-//     }
-// }
-
-// pub fn is_tile_passable(
-//     rounded_tile_pos: GridPosition,
-//     multi_map_manager: &Res<MultiMapManager>,
-// ) -> bool {
-//     if let Some(map_data) = multi_map_manager.get_map(map_id) {
-//         if let Some(_structure_entity) =
-//             map_data.structure_manager.structures.get(&rounded_tile_pos)
-//         {
-//             return false;
-//         }
-//     }
-//     // Si le chunk n'existe pas, on suppose qu'il n'y a pas de mur.
-//     // TODO: change that or spawn the chunk
-//     true
-// }
-
 // ========= coordinates conversion =========
 /// absolute_pos = (5.5 * TILE_SIZE.X, 0.5 * TILE_SIZE.y) | pos = (5.5, 0.5) | grid_pos = (5, 0)
+/// chunk_pos : (1,1) is 1 right and 1 down
 
-// TODO: rename tile_pos to pos and rounded_tile to grid_pos and world_pos to absolute_pos
-// TODO: rename tile_pos to pos and rounded_tile to grid_pos and world_pos to absolute_pos
-// TODO: rename tile_pos to pos and rounded_tile to grid_pos and world_pos to absolute_pos
-// TODO: rename tile_pos to pos and rounded_tile to grid_pos and world_pos to absolute_pos
-// TODO: rename tile_pos to pos and rounded_tile to grid_pos and world_pos to absolute_pos
-// TODO: rename tile_pos to pos and rounded_tile to grid_pos and world_pos to absolute_pos
-// TODO: rename tile_pos to pos and rounded_tile to grid_pos and world_pos to absolute_pos
-// TODO: rename tile_pos to pos and rounded_tile to grid_pos and world_pos to absolute_pos
-// TODO: rename tile_pos to pos and rounded_tile to grid_pos and world_pos to absolute_pos
-// TODO: rename tile_pos to pos and rounded_tile to grid_pos and world_pos to absolute_pos
-// TODO: rename tile_pos to pos and rounded_tile to grid_pos and world_pos to absolute_pos
-pub fn local_tile_pos_to_rounded_tile(
-    local_tile_pos: GridPosition,
-    rounded_chunk_pos: ChunkPosition,
+pub fn local_grid_pos_to_grid_pos(
+    local_grid_pos: GridPosition,
+    chunk_pos: ChunkPosition,
 ) -> GridPosition {
     GridPosition {
-        x: rounded_chunk_pos.x * CHUNK_SIZE.x as i32 + local_tile_pos.x,
-        y: rounded_chunk_pos.y * CHUNK_SIZE.y as i32 + local_tile_pos.y,
+        x: chunk_pos.x * (CHUNK_SIZE.x as i32) + local_grid_pos.x,
+        y: chunk_pos.y * (CHUNK_SIZE.y as i32) + local_grid_pos.y,
     }
 }
 
 // Conversion coordonnées logiques -> monde ; (5.5, 0.5) => (5.5 * TILE_SIZE.x, 0.5 * TILE_SIZE.y)
-pub fn tile_pos_to_world(tile_pos: Position) -> AbsolutePosition {
+pub fn pos_to_absolute_pos(pos: Position) -> AbsolutePosition {
     AbsolutePosition {
-        x: tile_pos.x * TILE_SIZE.x as f32,
-        y: tile_pos.y * TILE_SIZE.y as f32,
+        x: pos.x * TILE_SIZE.x as f32,
+        y: pos.y * TILE_SIZE.y as f32,
     }
 }
 
 // adds 0.5 to coordinates to make entities spawn based on the corner of there sprite and not the center
-pub fn rounded_tile_pos_to_world(rounded_tile_pos: GridPosition) -> AbsolutePosition {
+pub fn grid_pos_to_absolute_pos(grid_pos: GridPosition) -> AbsolutePosition {
     AbsolutePosition {
-        x: rounded_tile_pos.x as f32 * TILE_SIZE.x + TILE_SIZE.x * 0.5,
-        y: rounded_tile_pos.y as f32 * TILE_SIZE.y + TILE_SIZE.y * 0.5,
+        x: grid_pos.x as f32 * TILE_SIZE.x + TILE_SIZE.x * 0.5,
+        y: -(grid_pos.y as f32 * TILE_SIZE.y + TILE_SIZE.y * 0.5),
     }
 }
 
 // (5.5, 0.5) => (5, 0)
-pub fn tile_pos_to_rounded_tile(pos: Position) -> GridPosition {
+pub fn pos_to_grid_pos(pos: Position) -> GridPosition {
     GridPosition {
         x: pos.x.floor() as i32,
         y: pos.y.floor() as i32,
@@ -448,47 +229,47 @@ pub fn tile_pos_to_rounded_tile(pos: Position) -> GridPosition {
 }
 
 // Conversion monde -> coordonnées logiques
-pub fn world_pos_to_tile(world_pos: AbsolutePosition) -> Position {
+pub fn absolute_pos_to_pos(absolute_pos: AbsolutePosition) -> Position {
     Position {
-        x: world_pos.x as f32 / TILE_SIZE.x,
-        y: world_pos.y as f32 / TILE_SIZE.y,
+        x: absolute_pos.x as f32 / TILE_SIZE.x,
+        y: (-absolute_pos.y as f32) / TILE_SIZE.y,
     }
 }
 
 // Conversion monde -> coordonnées logiques
-pub fn world_pos_to_rounded_tile(world_pos: AbsolutePosition) -> GridPosition {
+pub fn absolute_pos_to_grid_pos(absolute_pos: AbsolutePosition) -> GridPosition {
     GridPosition {
-        x: (world_pos.x as f32 / TILE_SIZE.x).floor() as i32,
-        y: (world_pos.y as f32 / TILE_SIZE.y).floor() as i32,
+        x: (absolute_pos.x as f32 / TILE_SIZE.x).floor() as i32,
+        y: ((-absolute_pos.y as f32) / TILE_SIZE.y).floor() as i32,
     }
 }
 
 /// Convertit une position monde (pixels) en position de chunk.
-pub fn world_pos_to_rounded_chunk(world_pos: AbsolutePosition) -> ChunkPosition {
+pub fn absolute_pos_to_chunk_pos(absolute_pos: AbsolutePosition) -> ChunkPosition {
     ChunkPosition {
-        x: (world_pos.x as f32 / (CHUNK_SIZE.x as f32 * TILE_SIZE.x)).floor() as i32,
-        y: (world_pos.y as f32 / (CHUNK_SIZE.y as f32 * TILE_SIZE.y)).floor() as i32,
+        x: (absolute_pos.x as f32 / (CHUNK_SIZE.x as f32 * TILE_SIZE.x)).floor() as i32,
+        y: ((-absolute_pos.y as f32) / (CHUNK_SIZE.y as f32 * TILE_SIZE.y)).floor() as i32,
     }
 }
 
-pub fn rounded_chunk_pos_to_rounded_tile(rounded_chunk_pos: ChunkPosition) -> GridPosition {
+pub fn chunk_pos_to_grid_pos(chunk_pos: ChunkPosition) -> GridPosition {
     GridPosition {
-        x: rounded_chunk_pos.x * CHUNK_SIZE.x as i32,
-        y: rounded_chunk_pos.y * CHUNK_SIZE.y as i32,
+        x: chunk_pos.x * CHUNK_SIZE.x as i32,
+        y: chunk_pos.y * CHUNK_SIZE.y as i32,
     }
 }
 
-pub fn rounded_tile_pos_to_rounded_chunk(rounded_tile_pos: GridPosition) -> ChunkPosition {
+pub fn grid_pos_to_chunk_pos(grid_pos: GridPosition) -> ChunkPosition {
     ChunkPosition {
-        x: rounded_tile_pos.x / CHUNK_SIZE.x as i32,
-        y: rounded_tile_pos.y / CHUNK_SIZE.y as i32,
+        x: grid_pos.x / CHUNK_SIZE.x as i32,
+        y: grid_pos.y / CHUNK_SIZE.y as i32,
     }
 }
 
-pub fn tile_pos_to_rounded_chunk(tile_pos: Position) -> ChunkPosition {
+pub fn pos_to_chunk_pos(pos: Position) -> ChunkPosition {
     ChunkPosition {
-        x: (tile_pos.x / CHUNK_SIZE.x as f32).floor() as i32,
-        y: (tile_pos.y / CHUNK_SIZE.y as f32).floor() as i32,
+        x: (pos.x / CHUNK_SIZE.x as f32).floor() as i32,
+        y: (pos.y / CHUNK_SIZE.y as f32).floor() as i32,
     }
 }
 // ==========================================
@@ -582,3 +363,125 @@ pub fn tile_pos_to_rounded_chunk(tile_pos: Position) -> ChunkPosition {
 //         }
 //     }
 // }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const EPS: f32 = 1e-6;
+
+    fn approx_pos(a: AbsolutePosition, b: AbsolutePosition) -> bool {
+        (a.x - b.x).abs() < EPS && (a.y - b.y).abs() < EPS
+    }
+
+    fn approx_tile(a: Position, b: Position) -> bool {
+        (a.x - b.x).abs() < EPS && (a.y - b.y).abs() < EPS
+    }
+
+    #[test]
+    fn local_grid_pos_to_grid_pos_test() {
+        let chunk_pos = ChunkPosition { x: 0, y: 0 };
+
+        let grid_pos = local_grid_pos_to_grid_pos(GridPosition { x: 0, y: 0 }, chunk_pos);
+        assert_eq!(grid_pos, GridPosition { x: 0, y: 0 });
+        let grid_pos = local_grid_pos_to_grid_pos(GridPosition { x: 2, y: 2 }, chunk_pos);
+        assert_eq!(grid_pos, GridPosition { x: 2, y: 2 });
+
+        let chunk_pos = ChunkPosition { x: 2, y: 2 };
+
+        let grid_pos = local_grid_pos_to_grid_pos(GridPosition { x: 0, y: 0 }, chunk_pos);
+        assert_eq!(
+            grid_pos,
+            GridPosition {
+                x: 2 * CHUNK_SIZE.x as i32,
+                y: 2 * CHUNK_SIZE.y as i32
+            }
+        );
+        let grid_pos = local_grid_pos_to_grid_pos(GridPosition { x: 2, y: 2 }, chunk_pos);
+        assert_eq!(
+            grid_pos,
+            GridPosition {
+                x: 2 * CHUNK_SIZE.x as i32 + 2,
+                y: 2 * CHUNK_SIZE.y as i32 + 2
+            }
+        );
+    }
+
+    #[test]
+    fn grid_pos_to_absolute_pos_test() {
+        let absolute_pos = grid_pos_to_absolute_pos(GridPosition { x: 0, y: 0 });
+        assert!(approx_pos(
+            absolute_pos,
+            AbsolutePosition { x: 0.0, y: 0.0 }
+        ));
+        let absolute_pos = grid_pos_to_absolute_pos(GridPosition { x: 2, y: 2 });
+        assert!(approx_pos(
+            absolute_pos,
+            AbsolutePosition {
+                x: 2.0 * TILE_SIZE.x,
+                y: 2.0 * TILE_SIZE.y
+            }
+        ));
+    }
+
+    // #[test]
+    // fn round_trip_rounded_tile_world_rounded_tile() {
+    //     let samples = [
+    //         GridPosition { x: 0, y: 0 },
+    //         GridPosition { x: 5, y: -2 },
+    //         GridPosition { x: 42, y: 99 },
+    //     ];
+
+    //     for &g in &samples {
+    //         let w = rounded_tile_pos_to_world(g);
+    //         let back = world_pos_to_rounded_tile(w);
+    //         assert_eq!(
+    //             g, back,
+    //             "rounded_tile -> world -> rounded_tile failed for {:?}",
+    //             g
+    //         );
+    //     }
+    // }
+
+    // #[test]
+    // fn tile_to_rounded_tile_border_cases() {
+    //     // floor behavior on exact integers and on borderline fractional
+    //     let a = Position { x: 5.0, y: 0.0 }; // exactly 5 -> floor 5
+    //     let b = Position {
+    //         x: 5.9999,
+    //         y: -0.0001,
+    //     }; // slightly less than 6 and slightly negative
+    //     let c = Position {
+    //         x: -1.0,
+    //         y: -1.0001,
+    //     }; // exact negative integer and slightly less
+
+    //     assert_eq!(tile_pos_to_rounded_tile(a), GridPosition { x: 5, y: 0 });
+    //     assert_eq!(tile_pos_to_rounded_tile(b), GridPosition { x: 5, y: -1 });
+    //     assert_eq!(tile_pos_to_rounded_tile(c), GridPosition { x: -1, y: -2 }); // floor(-1.0001) == -2
+    // }
+
+    // #[test]
+    // fn chunk_tile_relationships_commute() {
+    //     // test relationships between chunk and tile conversions:
+    //     // rounded_chunk_pos_to_rounded_tile(rounded_chunk) -> rounded tile at chunk origin
+    //     let chunk = ChunkPosition { x: 2, y: -1 };
+    //     let tile_origin = rounded_chunk_pos_to_rounded_tile(chunk);
+    //     // turning that tile origin back into chunk (integer division) should give same chunk
+    //     let back_chunk = rounded_tile_pos_to_rounded_chunk(tile_origin);
+    //     assert_eq!(chunk, back_chunk);
+    // }
+
+    // #[test]
+    // fn local_tile_to_rounded_tile_with_chunk_offset() {
+    //     let local = GridPosition { x: 3, y: 4 };
+    //     let chunk = ChunkPosition { x: 1, y: 2 };
+    //     let combined = local_tile_pos_to_rounded_tile(local, chunk);
+    //     // combined = chunk * CHUNK_SIZE + local
+    //     // check that subtracting local yields multiple of CHUNK_SIZE in both axes
+    //     let delta_x = combined.x - local.x;
+    //     let delta_y = combined.y - local.y;
+    //     assert_eq!(delta_x % (CHUNK_SIZE.x as i32), 0);
+    //     assert_eq!(delta_y % (CHUNK_SIZE.y as i32), 0);
+    // }
+}

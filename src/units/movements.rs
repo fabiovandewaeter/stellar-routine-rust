@@ -1,6 +1,6 @@
 use crate::{
     UPS_TARGET,
-    map::{MapManager, Position, Structure, tile_pos_to_world},
+    map::{MapManager, Position, Structure, pos_to_absolute_pos},
     units::{Unit, UnitUnitCollisions},
 };
 use bevy::prelude::*;
@@ -52,7 +52,7 @@ pub fn sync_transform_to_gridpos_system(
 ) {
     for (pos, mut transform) in query.iter_mut() {
         // let target_pos = rounded_tile_pos_to_world(*grid_pos);
-        let target_pos = tile_pos_to_world(*pos);
+        let target_pos = pos_to_absolute_pos(*pos);
         let current_pos = transform.translation.xy();
 
         // Interpolation linéaire simple
