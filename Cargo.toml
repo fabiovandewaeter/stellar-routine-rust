@@ -1,0 +1,20 @@
+[package]
+name = "stellar-routine-rust"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy = { version = "0.17.2", features = ["trace"] }
+bevy_egui = "0.36.0"
+log = { version = "*", features = [
+    "max_level_debug",
+    "release_max_level_warn",
+] }
+rand = "0.9.2"
+serde = "1.0.225"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
