@@ -7,7 +7,8 @@ use crate::{
 };
 use bevy::prelude::*;
 
-pub const UNIT_REACH: u8 = 1;
+pub const UNIT_REACH: f32 = 1.0;
+pub const UNIT_DEFAULT_SIZE: f32 = 1.0;
 
 pub struct UnitsPlugin;
 
@@ -34,10 +35,21 @@ impl Plugin for UnitsPlugin {
     // Transform,
     Position,
     Direction,
+    DesiredMovement,
     Speed,
+    Size
 )]
 pub struct Unit {
     pub name: String,
+}
+
+#[derive(Component, Debug, Clone, Copy, PartialEq)]
+pub struct Size(pub f32);
+
+impl Default for Size {
+    fn default() -> Self {
+        Self(UNIT_DEFAULT_SIZE)
+    }
 }
 
 #[derive(Component)]
@@ -48,13 +60,14 @@ pub struct Player;
 pub struct UnitUnitCollisions;
 
 pub fn player_control_system(
-    mut unit_query: Query<(&Position, &mut DesiredMovement, &Speed), (With<Unit>, With<Player>)>,
+    mut unit_query: Query<(&mut DesiredMovement, &Speed), (With<Unit>, With<Player>)>,
     input: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
 ) {
-    if let Ok((position, mut desired_movement, speed)) = unit_query.single_mut() {
+    if let Ok((mut desired_movement, speed)) = unit_query.single_mut() {
         let mut delta = IVec2::new(0, 0);
         if input.pressed(KeyCode::KeyW) {
-            delta.y += 1;
+            delta.y -= 1;
         }
         if input.pressed(KeyCode::KeyA) {
             delta.x -= 1;
@@ -63,13 +76,10 @@ pub fn player_control_system(
             delta.x += 1;
         }
         if input.pressed(KeyCode::KeyS) {
-            delta.y -= 1;
+            delta.y += 1;
         }
 
-        // if tile_movement.direction != new_direction {
-        //     tile_movement.direction = new_direction;
-        // }
-        desired_movement.x = position.x + (delta.x * speed.0 as i32) as f32;
-        desired_movement.y = position.y + (delta.y * speed.0 as i32) as f32;
+        desired_movement.0.x = (delta.x as f32) * speed.0 * time.delta_secs();
+        desired_movement.0.y = (delta.y as f32) * speed.0 * time.delta_secs();
     }
 }

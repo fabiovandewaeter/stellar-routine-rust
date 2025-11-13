@@ -51,7 +51,7 @@ impl From<AbsolutePosition> for Vec2 {
 }
 
 /// absolute_pos = (5.5 * TILE_SIZE.X, 0.5 * TILE_SIZE.y) | pos = (5.5, 0.5) | grid_pos = (5, 0)
-#[derive(Component, Default, Debug, Hash, Clone, Copy, PartialEq, Eq)]
+#[derive(Default, Debug, Hash, Clone, Copy, PartialEq, Eq)]
 pub struct GridPosition {
     pub x: i32,
     pub y: i32,
@@ -66,8 +66,9 @@ impl GridPosition {
     }
 }
 
+/// chunk_pos : (1,1) is 1 right and 1 down
 /// ChunkPos {x: 2, y: 2} <=> GridPosition {x: 2*CHUNK_SIZE, y: 2*CHUNK_SIZE}
-#[derive(Component, Default, Debug, Hash, Clone, Copy, PartialEq, Eq)]
+#[derive(Default, Debug, Hash, Clone, Copy, PartialEq, Eq)]
 pub struct ChunkPosition {
     pub x: i32,
     pub y: i32,
@@ -85,13 +86,11 @@ pub struct MapManager {
 }
 
 #[derive(Component)]
+#[require(Position)]
 pub struct Structure;
 
 #[derive(Component)]
 pub struct Wall;
-
-#[derive(Component)]
-pub struct Chest;
 
 pub fn spawn_one_chunk(
     mut commands: Commands,
@@ -112,20 +111,22 @@ pub fn spawn_one_chunk(
             if is_wall
             // && (chunk_pos.x > 0 || chunk_pos.x < 0)
             // && (chunk_pos.y > 0 || chunk_pos.y < 0)
+            && (local_grid_pos.x > 2 )
+            && (local_grid_pos.y > 2 )
             {
                 let grid_pos = local_grid_pos_to_grid_pos(local_grid_pos, chunk_pos);
-                let tilemap_world_pos = grid_pos_to_absolute_pos(grid_pos);
-                let transform = Transform::from_translation(Vec3::new(
-                    tilemap_world_pos.x,
-                    tilemap_world_pos.y,
-                    // TILE_LAYER_LEVEL,
-                    0.0,
-                ));
+                let pos = grid_pos_to_pos(grid_pos);
+
+                let target_pos = pos_to_absolute_pos(pos);
+                let mut transform = Transform::default();
+                transform.translation.x = target_pos.x;
+                transform.translation.y = target_pos.y;
                 let wall_entity = commands
                     .spawn((
                         Structure,
                         Wall,
                         Sprite::from_image(asset_server.load("structures/wall.png")),
+                        pos,
                         transform,
                     ))
                     .id();
@@ -207,16 +208,25 @@ pub fn local_grid_pos_to_grid_pos(
 // Conversion coordonnées logiques -> monde ; (5.5, 0.5) => (5.5 * TILE_SIZE.x, 0.5 * TILE_SIZE.y)
 pub fn pos_to_absolute_pos(pos: Position) -> AbsolutePosition {
     AbsolutePosition {
-        x: pos.x * TILE_SIZE.x as f32,
-        y: pos.y * TILE_SIZE.y as f32,
+        x: (pos.x + 0.5) * TILE_SIZE.x as f32,
+        y: -((pos.y + 0.5) * TILE_SIZE.y as f32),
     }
 }
 
-// adds 0.5 to coordinates to make entities spawn based on the corner of there sprite and not the center
-pub fn grid_pos_to_absolute_pos(grid_pos: GridPosition) -> AbsolutePosition {
-    AbsolutePosition {
-        x: grid_pos.x as f32 * TILE_SIZE.x + TILE_SIZE.x * 0.5,
-        y: -(grid_pos.y as f32 * TILE_SIZE.y + TILE_SIZE.y * 0.5),
+// // adds 0.5 to coordinates to make entities spawn based on the corner of there sprite and not the center
+// pub fn grid_pos_to_absolute_pos(grid_pos: GridPosition) -> AbsolutePosition {
+//     AbsolutePosition {
+//         x: grid_pos.x as f32 * TILE_SIZE.x + TILE_SIZE.x * 0.5,
+//         y: -(grid_pos.y as f32 * TILE_SIZE.y + TILE_SIZE.y * 0.5),
+//         // x: grid_pos.x as f32 * TILE_SIZE.x,
+//         // y: -(grid_pos.y as f32 * TILE_SIZE.y),
+//     }
+// }
+
+pub fn grid_pos_to_pos(grid_pos: GridPosition) -> Position {
+    Position {
+        x: grid_pos.x as f32,
+        y: grid_pos.y as f32,
     }
 }
 
@@ -407,81 +417,21 @@ mod tests {
         );
     }
 
-    #[test]
-    fn grid_pos_to_absolute_pos_test() {
-        let absolute_pos = grid_pos_to_absolute_pos(GridPosition { x: 0, y: 0 });
-        assert!(approx_pos(
-            absolute_pos,
-            AbsolutePosition { x: 0.0, y: 0.0 }
-        ));
-        let absolute_pos = grid_pos_to_absolute_pos(GridPosition { x: 2, y: 2 });
-        assert!(approx_pos(
-            absolute_pos,
-            AbsolutePosition {
-                x: 2.0 * TILE_SIZE.x,
-                y: 2.0 * TILE_SIZE.y
-            }
-        ));
-    }
-
     // #[test]
-    // fn round_trip_rounded_tile_world_rounded_tile() {
-    //     let samples = [
-    //         GridPosition { x: 0, y: 0 },
-    //         GridPosition { x: 5, y: -2 },
-    //         GridPosition { x: 42, y: 99 },
-    //     ];
-
-    //     for &g in &samples {
-    //         let w = rounded_tile_pos_to_world(g);
-    //         let back = world_pos_to_rounded_tile(w);
-    //         assert_eq!(
-    //             g, back,
-    //             "rounded_tile -> world -> rounded_tile failed for {:?}",
-    //             g
-    //         );
-    //     }
-    // }
-
-    // #[test]
-    // fn tile_to_rounded_tile_border_cases() {
-    //     // floor behavior on exact integers and on borderline fractional
-    //     let a = Position { x: 5.0, y: 0.0 }; // exactly 5 -> floor 5
-    //     let b = Position {
-    //         x: 5.9999,
-    //         y: -0.0001,
-    //     }; // slightly less than 6 and slightly negative
-    //     let c = Position {
-    //         x: -1.0,
-    //         y: -1.0001,
-    //     }; // exact negative integer and slightly less
-
-    //     assert_eq!(tile_pos_to_rounded_tile(a), GridPosition { x: 5, y: 0 });
-    //     assert_eq!(tile_pos_to_rounded_tile(b), GridPosition { x: 5, y: -1 });
-    //     assert_eq!(tile_pos_to_rounded_tile(c), GridPosition { x: -1, y: -2 }); // floor(-1.0001) == -2
-    // }
-
-    // #[test]
-    // fn chunk_tile_relationships_commute() {
-    //     // test relationships between chunk and tile conversions:
-    //     // rounded_chunk_pos_to_rounded_tile(rounded_chunk) -> rounded tile at chunk origin
-    //     let chunk = ChunkPosition { x: 2, y: -1 };
-    //     let tile_origin = rounded_chunk_pos_to_rounded_tile(chunk);
-    //     // turning that tile origin back into chunk (integer division) should give same chunk
-    //     let back_chunk = rounded_tile_pos_to_rounded_chunk(tile_origin);
-    //     assert_eq!(chunk, back_chunk);
-    // }
-
-    // #[test]
-    // fn local_tile_to_rounded_tile_with_chunk_offset() {
-    //     let local = GridPosition { x: 3, y: 4 };
-    //     let chunk = ChunkPosition { x: 1, y: 2 };
-    //     let combined = local_tile_pos_to_rounded_tile(local, chunk);
-    //     // combined = chunk * CHUNK_SIZE + local
-    //     // check that subtracting local yields multiple of CHUNK_SIZE in both axes
-    //     let delta_x = combined.x - local.x;
-    //     let delta_y = combined.y - local.y;
-    //     assert_eq!(delta_x % (CHUNK_SIZE.x as i32), 0);
-    //     assert_eq!(delta_y % (CHUNK_SIZE.y as i32), 0);
+    // fn grid_pos_to_absolute_pos_test() {
+    //     // TODO: does not work because now it's right/down instead of right/up for coordinates
+    //     let absolute_pos = grid_pos_to_absolute_pos(GridPosition { x: 0, y: 0 });
+    //     assert!(approx_pos(
+    //         absolute_pos,
+    //         AbsolutePosition { x: 0.0, y: 0.0 }
+    //     ));
+    //     let absolute_pos = grid_pos_to_absolute_pos(GridPosition { x: 2, y: 2 });
+    //     assert!(approx_pos(
+    //         absolute_pos,
+    //         AbsolutePosition {
+    //             x: 2.0 * TILE_SIZE.x,
+    //             y: 2.0 * TILE_SIZE.y
+    //         }
+    //     ));
     // }
 }
