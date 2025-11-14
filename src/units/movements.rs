@@ -8,19 +8,19 @@ use crate::{
 };
 use bevy::{prelude::*, sprite_render::TilemapChunk};
 
-pub const UNIT_DEFAULT_MOVEMENT_SPEED: f32 = 5.0;
+// pub const UNIT_DEFAULT_MOVEMENT_SPEED: f32 = 5.0;
 
 #[derive(Component, Debug, Default, Clone, Copy, PartialEq)]
 pub struct DesiredMovement(pub Position);
 
-#[derive(Component, Debug, Clone, Copy, PartialEq)]
-pub struct Speed(pub f32);
+// #[derive(Component, Debug, Clone, Copy, PartialEq)]
+// pub struct Speed(pub f32);
 
-impl Default for Speed {
-    fn default() -> Self {
-        Self(UNIT_DEFAULT_MOVEMENT_SPEED)
-    }
-}
+// impl Default for Speed {
+//     fn default() -> Self {
+//         Self(UNIT_DEFAULT_MOVEMENT_SPEED)
+//     }
+// }
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {

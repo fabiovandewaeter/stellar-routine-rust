@@ -6,9 +6,6 @@ use bevy::{
 };
 
 #[derive(Component)]
-pub struct Selected;
-
-#[derive(Component)]
 pub struct CameraMovement(pub CameraMovementKind);
 
 #[derive(Clone, Copy)]

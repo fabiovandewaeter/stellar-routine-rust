@@ -1,9 +1,6 @@
-use crate::{
-    map::Position,
-    units::movements::{
-        DesiredMovement, Direction, Speed, move_and_collide_units_system,
-        sync_transform_to_gridpos_system, update_sprite_facing_system,
-    },
+use crate::map::TILE_SIZE;
+use avian2d::prelude::{
+    CoefficientCombine, Collider, Friction, LinearVelocity, LockedAxes, RigidBody,
 };
 use bevy::prelude::*;
 
@@ -12,20 +9,11 @@ pub const UNIT_DEFAULT_SIZE: f32 = 1.0;
 
 pub struct UnitsPlugin;
 
+pub const UNIT_DEFAULT_MOVEMENT_SPEED: f32 = 50.0;
+
 impl Plugin for UnitsPlugin {
     fn build(&self, app: &mut bevy::app::App) {
-        app.add_systems(
-            Update,
-            sync_transform_to_gridpos_system.after(move_and_collide_units_system),
-        )
-        .add_systems(
-            FixedUpdate,
-            (
-                move_and_collide_units_system,
-                player_control_system,
-                update_sprite_facing_system.after(move_and_collide_units_system),
-            ),
-        );
+        app.add_systems(FixedUpdate, (player_control_system,));
     }
 }
 
@@ -33,53 +21,68 @@ impl Plugin for UnitsPlugin {
 #[require(
     Sprite,
     // Transform,
-    Position,
-    Direction,
-    DesiredMovement,
+    // Coordinates,
+    // Direction,
+    // DesiredMovement,
     Speed,
-    Size
+    // Size
+    RigidBody::Dynamic,
+    Collider::circle(TILE_SIZE.x / 2.0),
+    LinearVelocity::ZERO,
+    LockedAxes::ROTATION_LOCKED,
+    Friction {
+        dynamic_coefficient: 0.0,
+        static_coefficient: 0.0,
+        combine_rule: CoefficientCombine::Multiply,
+    },
 )]
 pub struct Unit {
     pub name: String,
 }
 
 #[derive(Component, Debug, Clone, Copy, PartialEq)]
-pub struct Size(pub f32);
+pub struct Speed(pub f32);
 
-impl Default for Size {
+impl Default for Speed {
     fn default() -> Self {
-        Self(UNIT_DEFAULT_SIZE)
+        Self(UNIT_DEFAULT_MOVEMENT_SPEED)
     }
 }
 
 #[derive(Component)]
 pub struct Player;
 
-/// add if the unit should checks its collisions with other units (collisions with walls are not affected by this component)
-#[derive(Component)]
-pub struct UnitUnitCollisions;
-
 pub fn player_control_system(
-    mut unit_query: Query<(&mut DesiredMovement, &Speed), (With<Unit>, With<Player>)>,
+    mut unit_query: Query<(&mut LinearVelocity, &Speed), With<Player>>,
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    if let Ok((mut desired_movement, speed)) = unit_query.single_mut() {
-        let mut delta = IVec2::new(0, 0);
-        if input.pressed(KeyCode::KeyW) {
-            delta.y -= 1;
-        }
-        if input.pressed(KeyCode::KeyA) {
-            delta.x -= 1;
-        }
-        if input.pressed(KeyCode::KeyD) {
-            delta.x += 1;
-        }
-        if input.pressed(KeyCode::KeyS) {
-            delta.y += 1;
-        }
+    let Ok((mut velocity, speed)) = unit_query.single_mut() else {
+        return;
+    };
 
-        desired_movement.0.x = (delta.x as f32) * speed.0 * time.delta_secs();
-        desired_movement.0.y = (delta.y as f32) * speed.0 * time.delta_secs();
+    let mut direction = Vec2::ZERO;
+
+    if input.pressed(KeyCode::KeyW) || input.pressed(KeyCode::ArrowUp) {
+        direction.y += 1.0;
     }
+    if input.pressed(KeyCode::KeyS) || input.pressed(KeyCode::ArrowDown) {
+        direction.y -= 1.0;
+    }
+    if input.pressed(KeyCode::KeyA) || input.pressed(KeyCode::ArrowLeft) {
+        direction.x -= 1.0;
+    }
+    if input.pressed(KeyCode::KeyD) || input.pressed(KeyCode::ArrowRight) {
+        direction.x += 1.0;
+    }
+
+    // Normaliser le vecteur pour éviter que le mouvement diagonal
+    // soit plus rapide (racine(1²+1²) = 1.414)
+    if direction.length_squared() > 0.0 {
+        direction = direction.normalize();
+    }
+
+    // Appliquer la vitesse
+    velocity.x = direction.x * speed.0;
+    velocity.y = direction.y * speed.0;
 }
