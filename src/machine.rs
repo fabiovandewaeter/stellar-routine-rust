@@ -29,6 +29,21 @@ impl Default for ProductionMachine {
     }
 }
 
+pub fn process_production_in_machines_system(mut machine_query: Query<&mut ProductionMachine>) {
+    for mut production_machine in machine_query.iter_mut() {
+        if production_machine.progress_ticks >= production_machine.craft_time_ticks {
+            let item_stacks = production_machine.input_inventory.remove_all_item_stack();
+            for item_stack in item_stacks {
+                production_machine
+                    .output_inventory
+                    .add_item_stack(item_stack).expect("process_production_in_machines_system(): transfer to output_inventory didn't work");
+            }
+            production_machine.progress_ticks = 0;
+        }
+        production_machine.progress_ticks += 1;
+    }
+}
+
 pub fn transfert_items_to_next_machine_system(
     mut machine_query: Query<(Entity, &Transform, &mut ProductionMachine, &Direction)>,
     chunk_query: Query<&StructureManager, With<TilemapChunk>>,

@@ -8,7 +8,7 @@ use stellar_routine_rust::{
     },
     map::{Coordinates, MapPlugin, coord_to_absolute_coord},
     units::{
-        Player, Speed, UNIT_DEFAULT_MOVEMENT_SPEED, Unit, UnitsPlugin,
+        Player, Speed, UNIT_DEFAULT_MOVEMENT_SPEED, UNIT_LAYER, Unit, UnitsPlugin,
         pathfinding::PathfindingPlugin,
     },
 };
@@ -70,7 +70,9 @@ fn setup_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     let speed = Speed(UNIT_DEFAULT_MOVEMENT_SPEED * 2.0);
     let coordinates = Coordinates { x: 0.0, y: 0.0 };
     let absolute_coordinates = coord_to_absolute_coord(coordinates);
-    let transform = Transform::from_xyz(absolute_coordinates.x, absolute_coordinates.y, 0.0);
+    let mut transform =
+        Transform::from_xyz(absolute_coordinates.x, absolute_coordinates.y, UNIT_LAYER);
+    transform.scale *= 0.8;
     commands.spawn((
         Unit {
             name: "Player".into(),
@@ -83,7 +85,9 @@ fn setup_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let coordinates = Coordinates { x: 5.0, y: 5.0 };
     let absolute_coordinates = coord_to_absolute_coord(coordinates);
-    let transform = Transform::from_xyz(absolute_coordinates.x, absolute_coordinates.y, 0.0);
+    let mut transform =
+        Transform::from_xyz(absolute_coordinates.x, absolute_coordinates.y, UNIT_LAYER);
+    transform.scale *= 0.8;
     commands.spawn((
         Unit {
             name: "Monstre".into(),

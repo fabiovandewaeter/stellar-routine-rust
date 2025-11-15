@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use bevy::{prelude::*, sprite_render::TilemapChunk};
+use bevy_egui::egui::debug_text::print;
 use pathfinding::prelude::dijkstra_all;
 
 use crate::{
@@ -41,10 +42,6 @@ pub fn calculate_flow_field_system(
     let Ok(transform) = player_query.single() else {
         return;
     };
-    // let goal = absolute_coord_to_tile_coord(AbsoluteCoordinates {
-    //     x: transform.translation.x,
-    //     y: transform.translation.y,
-    // });
     let goal = absolute_coord_to_tile_coord((*transform).into());
 
     let cost_map = dijkstra_all(&goal, |&tile| {
@@ -64,13 +61,38 @@ pub fn calculate_flow_field_system(
                 let dx = (neighbor_tile.x - goal.x).abs();
                 let dy = (neighbor_tile.y - goal.y).abs();
 
-                if dx <= FLOWFIELD_RADIUS
-                    && dy <= FLOWFIELD_RADIUS
-                    && map_manager.is_tile_walkable(neighbor_tile, &chunk_query)
-                {
-                    let cost = if x == 0 || y == 0 { 10 } else { 14 };
-                    neighbors.push((neighbor_tile, cost));
+                if dx > FLOWFIELD_RADIUS || dy > FLOWFIELD_RADIUS {
+                    continue;
                 }
+
+                // 1. Vérifier si la tuile de destination est marchable
+                if !map_manager.is_tile_walkable(neighbor_tile, &chunk_query) {
+                    continue;
+                }
+
+                // 2. NOUVELLE VÉRIFICATION : Empêcher de couper les coins
+                if x != 0 && y != 0 {
+                    // C'est un mouvement diagonal
+                    let adjacent_1 = TileCoordinates {
+                        x: tile.x + x,
+                        y: tile.y,
+                    };
+                    let adjacent_2 = TileCoordinates {
+                        x: tile.x,
+                        y: tile.y + y,
+                    };
+
+                    if !map_manager.is_tile_walkable(adjacent_1, &chunk_query)
+                        || !map_manager.is_tile_walkable(adjacent_2, &chunk_query)
+                    {
+                        // L'un des coins est un mur, on ne peut pas passer
+                        continue;
+                    }
+                }
+
+                // Si on arrive ici, le mouvement est valide
+                let cost = if x == 0 || y == 0 { 10 } else { 14 };
+                neighbors.push((neighbor_tile, cost));
             }
         }
 

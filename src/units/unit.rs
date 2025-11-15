@@ -9,11 +9,12 @@ use avian2d::prelude::{
 use bevy::prelude::*;
 
 pub const UNIT_REACH: f32 = 1.0;
-pub const UNIT_DEFAULT_SIZE: f32 = 1.0;
+// pub const UNIT_DEFAULT_SIZE: f32 = 1.0;
+pub const UNIT_DEFAULT_SIZE: f32 = TILE_SIZE.x * 0.8;
+pub const UNIT_DEFAULT_MOVEMENT_SPEED: f32 = 1000.0;
+pub const UNIT_LAYER: f32 = 1.0;
 
 pub struct UnitsPlugin;
-
-pub const UNIT_DEFAULT_MOVEMENT_SPEED: f32 = 1000.0;
 
 impl Plugin for UnitsPlugin {
     fn build(&self, app: &mut bevy::app::App) {
@@ -36,7 +37,7 @@ impl Plugin for UnitsPlugin {
     Direction,
     Speed,
     RigidBody::Dynamic,
-    Collider::circle(TILE_SIZE.x / 2.0),
+    Collider::circle(UNIT_DEFAULT_SIZE / 2.0),
     LinearVelocity::ZERO,
     LockedAxes::ROTATION_LOCKED,
     Friction {
@@ -44,7 +45,6 @@ impl Plugin for UnitsPlugin {
         static_coefficient: 0.0,
         combine_rule: CoefficientCombine::Multiply,
     },
-    // TransformInterpolation,
     TranslationInterpolation
 )]
 pub struct Unit {
