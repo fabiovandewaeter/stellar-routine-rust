@@ -1,13 +1,16 @@
 use avian2d::prelude::*;
-use bevy::{diagnostic::FrameTimeDiagnosticsPlugin, prelude::*};
+use bevy::{diagnostic::FrameTimeDiagnosticsPlugin, platform::collections::HashMap, prelude::*};
 use stellar_routine_rust::{
     UPS_TARGET,
     camera::{
         CameraMovement, CameraMovementKind, UpsCounter, display_fps_ups_system,
         handle_camera_inputs_system,
     },
-    map::{Coordinates, MapPlugin, TILE_SIZE, coord_to_absolute_coord},
-    units::{Player, Unit, UnitsPlugin},
+    map::{Coordinates, MapPlugin, coord_to_absolute_coord},
+    units::{
+        Player, Speed, UNIT_DEFAULT_MOVEMENT_SPEED, Unit, UnitsPlugin,
+        pathfinding::PathfindingPlugin,
+    },
 };
 
 const LENGTH_UNIT: f32 = 16.0;
@@ -30,6 +33,7 @@ fn main() {
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(UnitsPlugin)
         .add_plugins(MapPlugin)
+        .add_plugins(PathfindingPlugin)
         .insert_resource(Gravity(Vec2::ZERO))
         // .insert_resource(TimeState::default())
         .insert_resource(UpsCounter {
@@ -67,7 +71,7 @@ fn setup_system(
     ));
 
     let player_texture_handle = asset_server.load("default.png");
-    let speed = UPS_TARGET as u32 / 5;
+    let speed = Speed(UNIT_DEFAULT_MOVEMENT_SPEED * 2.0);
     let coordinates = Coordinates { x: 0.0, y: 0.0 };
     let absolute_coordinates = coord_to_absolute_coord(coordinates);
     let transform = Transform::from_xyz(absolute_coordinates.x, absolute_coordinates.y, 0.0);
@@ -79,6 +83,19 @@ fn setup_system(
         transform,
         coordinates,
         Player,
+        speed,
+    ));
+
+    let coordinates = Coordinates { x: 5.0, y: 5.0 };
+    let absolute_coordinates = coord_to_absolute_coord(coordinates);
+    let transform = Transform::from_xyz(absolute_coordinates.x, absolute_coordinates.y, 0.0);
+    commands.spawn((
+        Unit {
+            name: "Monstre".into(),
+        },
+        Sprite::from_image(player_texture_handle.clone()),
+        transform,
+        coordinates,
     ));
 }
 

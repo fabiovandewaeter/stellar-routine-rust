@@ -1,10 +1,12 @@
-use avian2d::prelude::{Collider, RigidBody};
+use avian2d::prelude::{CoefficientCombine, Collider, Friction, RigidBody};
 use bevy::{
     prelude::*,
     sprite_render::{TileData, TilemapChunk, TilemapChunkTileData},
 };
 use rand::Rng;
 use std::collections::HashMap;
+
+use crate::units::pathfinding::RecalculateFlowField;
 
 pub const TILE_SIZE: Vec2 = Vec2 { x: 16.0, y: 16.0 };
 pub const CHUNK_SIZE: UVec2 = UVec2 { x: 32, y: 32 };
@@ -14,7 +16,7 @@ pub const STRUCTURE_LAYER_LEVEL: f32 = 0.0;
 pub struct MapPlugin;
 
 impl Plugin for MapPlugin {
-    fn build(&self, app: &mut bevy::app::App) {
+    fn build(&self, app: &mut App) {
         app.insert_resource(MapManager::default()).add_systems(
             PostStartup,
             spawn_one_chunk
@@ -91,15 +93,39 @@ pub struct MapManager {
 pub struct Structure;
 
 #[derive(Component)]
+#[require(
+    RigidBody::Static,
+    Collider::rectangle(TILE_SIZE.x, TILE_SIZE.y),
+    Friction {
+        dynamic_coefficient: 0.0,
+        static_coefficient: 0.0,
+        combine_rule: CoefficientCombine::Multiply,
+    },
+)]
 pub struct Wall;
+
+pub fn is_tile_walkable(
+    tile: TileCoordinates,
+    map_manager: &MapManager,
+    chunks_query: &Query<&StructureManager, With<TilemapChunk>>,
+) -> bool {
+    if let Some(chunk_entity) = map_manager.chunks.get(&tile_coord_to_chunk_coord(tile)) {
+        if let Ok(structure_manager) = chunks_query.get(*chunk_entity) {
+            return !structure_manager.structures.contains_key(&tile);
+        }
+    }
+    false
+}
 
 pub fn spawn_one_chunk(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut map_manager: ResMut<MapManager>,
+    mut message_recalculate: MessageWriter<RecalculateFlowField>,
 ) -> () {
     let mut rng = rand::rng();
     let chunk_coord = ChunkCoordinates { x: 0, y: 0 };
+    let mut chunk_was_modified = false;
     let mut structure_manager = StructureManager::default();
     for x in 0..CHUNK_SIZE.x {
         for y in 0..CHUNK_SIZE.y {
@@ -109,12 +135,7 @@ pub fn spawn_one_chunk(
             };
 
             let is_wall = rng.random_bool(0.2);
-            if is_wall
-            // && (chunk_coord.x > 0 || chunk_coord.x < 0)
-            // && (chunk_coord.y > 0 || chunk_coord.y < 0)
-            && (local_tile_coord.x > 2 )
-            && (local_tile_coord.y > 2 )
-            {
+            if is_wall && (local_tile_coord.x > 2) && (local_tile_coord.y > 2) {
                 let tile_coord = local_tile_coord_to_tile_coord(local_tile_coord, chunk_coord);
                 let coord = tile_coord_to_coord(tile_coord);
 
@@ -129,15 +150,19 @@ pub fn spawn_one_chunk(
                         Sprite::from_image(asset_server.load("structures/wall.png")),
                         coord,
                         transform,
-                        RigidBody::Static,
-                        Collider::rectangle(TILE_SIZE.x, TILE_SIZE.y),
                     ))
                     .id();
                 structure_manager
                     .structures
                     .insert(local_tile_coord, wall_entity);
+
+                chunk_was_modified = true;
             }
         }
+    }
+
+    if chunk_was_modified {
+        message_recalculate.write_default();
     }
 
     let tile_display_size = UVec2::splat(TILE_SIZE.x as u32);
