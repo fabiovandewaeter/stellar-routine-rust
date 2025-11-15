@@ -7,7 +7,7 @@ use crate::{
 };
 use avian2d::prelude::{
     CoefficientCombine, Collider, Friction, LinearVelocity, LockedAxes, RigidBody,
-    TransformInterpolation,
+    TransformInterpolation, TranslationInterpolation,
 };
 use bevy::prelude::*;
 
@@ -47,7 +47,8 @@ impl Plugin for UnitsPlugin {
         static_coefficient: 0.0,
         combine_rule: CoefficientCombine::Multiply,
     },
-    TransformInterpolation,
+    // TransformInterpolation,
+    TranslationInterpolation
 )]
 pub struct Unit {
     pub name: String,
