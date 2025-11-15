@@ -51,15 +51,11 @@ fn main() {
                 // control_time_system,
             ),
         )
-        .add_systems(FixedUpdate, (update_logic_system,))
+        .add_systems(FixedUpdate, update_logic_system)
         .run();
 }
 
-fn setup_system(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    asset_server: Res<AssetServer>,
-) {
+fn setup_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     let mut orthographic_projection = OrthographicProjection::default_2d();
     orthographic_projection.scale *= 0.8;
     let projection = Projection::Orthographic(orthographic_projection);
@@ -81,7 +77,7 @@ fn setup_system(
         },
         Sprite::from_image(player_texture_handle.clone()),
         transform,
-        coordinates,
+        // coordinates,
         Player,
         speed,
     ));
@@ -95,7 +91,7 @@ fn setup_system(
         },
         Sprite::from_image(player_texture_handle.clone()),
         transform,
-        coordinates,
+        // coordinates,
     ));
 }
 

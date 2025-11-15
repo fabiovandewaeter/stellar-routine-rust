@@ -6,6 +6,7 @@ use crate::{
 };
 use avian2d::prelude::{
     CoefficientCombine, Collider, Friction, LinearVelocity, LockedAxes, RigidBody,
+    TransformInterpolation,
 };
 use bevy::prelude::*;
 
@@ -68,6 +69,7 @@ impl Default for Direction {
         static_coefficient: 0.0,
         combine_rule: CoefficientCombine::Multiply,
     },
+    TransformInterpolation,
 )]
 pub struct Unit {
     pub name: String,
@@ -165,7 +167,7 @@ pub fn units_follow_field_system(
         if let Some(&delta) = flow_field.0.get(&tile) {
             let delta_time = time.delta_secs();
             velocity.x = delta.x * speed.0 * delta_time;
-            velocity.y = -delta.y * speed.0 * delta_time;
+            velocity.y = -(delta.y * speed.0 * delta_time);
 
             if delta.y < 0.0 {
                 *direction = Direction::North;
