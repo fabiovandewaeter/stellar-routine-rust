@@ -6,7 +6,7 @@ use bevy::{
 use rand::Rng;
 use std::collections::HashMap;
 
-use crate::units::pathfinding::RecalculateFlowField;
+use crate::{machine::ProductionMachine, units::pathfinding::RecalculateFlowField};
 
 pub const TILE_SIZE: Vec2 = Vec2 { x: 16.0, y: 16.0 };
 pub const CHUNK_SIZE: UVec2 = UVec2 { x: 32, y: 32 };
@@ -46,6 +46,15 @@ pub struct Coordinates {
 pub struct AbsoluteCoordinates {
     pub x: f32,
     pub y: f32,
+}
+
+impl From<Transform> for AbsoluteCoordinates {
+    fn from(p: Transform) -> AbsoluteCoordinates {
+        AbsoluteCoordinates {
+            x: p.translation.x,
+            y: p.translation.y,
+        }
+    }
 }
 
 impl From<AbsoluteCoordinates> for Vec2 {
@@ -88,11 +97,36 @@ pub struct StructureManager {
 pub struct MapManager {
     pub chunks: HashMap<ChunkCoordinates, Entity>,
 }
+impl MapManager {
+    pub fn get_tile(
+        &self,
+        tile: TileCoordinates,
+        chunk_query: &Query<&StructureManager, With<TilemapChunk>>,
+    ) -> Option<Entity> {
+        if let Some(chunk_entity) = self.chunks.get(&tile_coord_to_chunk_coord(tile)) {
+            if let Ok(structure_manager) = chunk_query.get(*chunk_entity) {
+                return structure_manager.structures.get(&tile).copied();
+            }
+        }
+        None
+    }
+
+    pub fn is_tile_walkable(
+        &self,
+        tile: TileCoordinates,
+        chunk_query: &Query<&StructureManager, With<TilemapChunk>>,
+    ) -> bool {
+        // if let Some(chunk_entity) = self.chunks.get(&tile_coord_to_chunk_coord(tile)) {
+        //     if let Ok(structure_manager) = chunks_query.get(*chunk_entity) {
+        //         return !structure_manager.structures.contains_key(&tile);
+        //     }
+        // }
+        // false
+        self.get_tile(tile, chunk_query).is_none()
+    }
+}
 
 #[derive(Component, Default)]
-pub struct Structure;
-
-#[derive(Component)]
 #[require(
     RigidBody::Static,
     Collider::rectangle(TILE_SIZE.x, TILE_SIZE.y),
@@ -102,20 +136,10 @@ pub struct Structure;
         combine_rule: CoefficientCombine::Multiply,
     },
 )]
-pub struct Wall;
+pub struct Structure;
 
-pub fn is_tile_walkable(
-    tile: TileCoordinates,
-    map_manager: &MapManager,
-    chunks_query: &Query<&StructureManager, With<TilemapChunk>>,
-) -> bool {
-    if let Some(chunk_entity) = map_manager.chunks.get(&tile_coord_to_chunk_coord(tile)) {
-        if let Ok(structure_manager) = chunks_query.get(*chunk_entity) {
-            return !structure_manager.structures.contains_key(&tile);
-        }
-    }
-    false
-}
+#[derive(Component)]
+pub struct Wall;
 
 pub fn spawn_one_chunk(
     mut commands: Commands,
@@ -159,6 +183,24 @@ pub fn spawn_one_chunk(
             }
         }
     }
+
+    let local_tile_coord = TileCoordinates { x: 1, y: 1 };
+    let tile_coord = local_tile_coord_to_tile_coord(local_tile_coord, chunk_coord);
+    let target_coord = tile_coord_to_absolute_coord(tile_coord);
+    let mut transform = Transform::default();
+    transform.translation.x = target_coord.x;
+    transform.translation.y = target_coord.y;
+    let machine_entity = commands
+        .spawn((
+            Structure,
+            ProductionMachine::default(),
+            Sprite::from_image(asset_server.load("structures/machine.png")),
+            transform,
+        ))
+        .id();
+    structure_manager
+        .structures
+        .insert(local_tile_coord, machine_entity);
 
     if chunk_was_modified {
         message_recalculate.write_default();
@@ -231,20 +273,20 @@ pub fn local_tile_coord_to_tile_coord(
 // Conversion coordonnées logiques -> monde ; (5.5, 0.5) => (5.5 * TILE_SIZE.x, 0.5 * TILE_SIZE.y)
 pub fn coord_to_absolute_coord(coord: Coordinates) -> AbsoluteCoordinates {
     AbsoluteCoordinates {
-        // x: (coord.x + 0.5) * TILE_SIZE.x as f32,
-        // y: -((coord.y + 0.5) * TILE_SIZE.y as f32),
-        x: (coord.x) * TILE_SIZE.x as f32,
-        y: -((coord.y) * TILE_SIZE.y as f32),
+        x: (coord.x + 0.5) * TILE_SIZE.x as f32,
+        y: -((coord.y + 0.5) * TILE_SIZE.y as f32),
+        // x: (coord.x) * TILE_SIZE.x as f32,
+        // y: -((coord.y) * TILE_SIZE.y as f32),
     }
 }
 
 // // adds 0.5 to coordinates to make entities spawn based on the corner of there sprite and not the center
 pub fn tile_coord_to_absolute_coord(tile_coord: TileCoordinates) -> AbsoluteCoordinates {
     AbsoluteCoordinates {
-        // x: tile_coord.x as f32 * TILE_SIZE.x + TILE_SIZE.x * 0.5,
-        // y: -(tile_coord.y as f32 * TILE_SIZE.y + TILE_SIZE.y * 0.5),
-        x: tile_coord.x as f32 * TILE_SIZE.x,
-        y: -(tile_coord.y as f32 * TILE_SIZE.y),
+        x: tile_coord.x as f32 * TILE_SIZE.x + TILE_SIZE.x * 0.5,
+        y: -(tile_coord.y as f32 * TILE_SIZE.y + TILE_SIZE.y * 0.5),
+        // x: tile_coord.x as f32 * TILE_SIZE.x,
+        // y: -(tile_coord.y as f32 * TILE_SIZE.y),
     }
 }
 
@@ -266,16 +308,18 @@ pub fn coord_to_tile_coord(coord: Coordinates) -> TileCoordinates {
 // Conversion monde -> coordonnées logiques
 pub fn absolute_coord_to_coord(absolute_coord: AbsoluteCoordinates) -> Coordinates {
     Coordinates {
-        x: absolute_coord.x as f32 / TILE_SIZE.x,
-        y: (-absolute_coord.y as f32) / TILE_SIZE.y,
+        // x: absolute_coord.x as f32 / TILE_SIZE.x,
+        // y: (-absolute_coord.y as f32) / TILE_SIZE.y,
+        x: absolute_coord.x as f32 / TILE_SIZE.x - 0.5,
+        y: (-absolute_coord.y as f32) / TILE_SIZE.y - 0.5,
     }
 }
 
 // Conversion monde -> coordonnées logiques
 pub fn absolute_coord_to_tile_coord(absolute_coord: AbsoluteCoordinates) -> TileCoordinates {
     TileCoordinates {
-        x: (absolute_coord.x as f32 / TILE_SIZE.x).floor() as i32,
-        y: ((-absolute_coord.y as f32) / TILE_SIZE.y).floor() as i32,
+        x: ((absolute_coord.x as f32 / TILE_SIZE.x) - 0.5).floor() as i32,
+        y: (((-absolute_coord.y as f32) / TILE_SIZE.y) - 0.5).floor() as i32,
     }
 }
 

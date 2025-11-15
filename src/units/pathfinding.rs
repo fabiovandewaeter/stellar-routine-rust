@@ -4,10 +4,7 @@ use bevy::{prelude::*, sprite_render::TilemapChunk};
 use pathfinding::prelude::dijkstra_all;
 
 use crate::{
-    map::{
-        AbsoluteCoordinates, MapManager, StructureManager, TileCoordinates,
-        absolute_coord_to_tile_coord, is_tile_walkable,
-    },
+    map::{MapManager, StructureManager, TileCoordinates, absolute_coord_to_tile_coord},
     units::Player,
 };
 
@@ -44,10 +41,11 @@ pub fn calculate_flow_field_system(
     let Ok(transform) = player_query.single() else {
         return;
     };
-    let goal = absolute_coord_to_tile_coord(AbsoluteCoordinates {
-        x: transform.translation.x,
-        y: transform.translation.y,
-    });
+    // let goal = absolute_coord_to_tile_coord(AbsoluteCoordinates {
+    //     x: transform.translation.x,
+    //     y: transform.translation.y,
+    // });
+    let goal = absolute_coord_to_tile_coord((*transform).into());
 
     let cost_map = dijkstra_all(&goal, |&tile| {
         let mut neighbors = Vec::with_capacity(8);
@@ -68,7 +66,7 @@ pub fn calculate_flow_field_system(
 
                 if dx <= FLOWFIELD_RADIUS
                     && dy <= FLOWFIELD_RADIUS
-                    && is_tile_walkable(neighbor_tile, &map_manager, &chunk_query)
+                    && map_manager.is_tile_walkable(neighbor_tile, &chunk_query)
                 {
                     let cost = if x == 0 || y == 0 { 10 } else { 14 };
                     neighbors.push((neighbor_tile, cost));
@@ -88,7 +86,7 @@ pub fn calculate_flow_field_system(
                 continue;
             }
 
-            if !is_tile_walkable(tile, &map_manager, &chunk_query) {
+            if !map_manager.is_tile_walkable(tile, &chunk_query) {
                 continue;
             }
 

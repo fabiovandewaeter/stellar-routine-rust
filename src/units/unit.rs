@@ -1,13 +1,10 @@
 use crate::{
-    map::{
-        AbsoluteCoordinates, TILE_SIZE, absolute_coord_to_coord, absolute_coord_to_tile_coord,
-        coord_to_absolute_coord,
-    },
+    map::{TILE_SIZE, absolute_coord_to_tile_coord},
     units::pathfinding::{FlowField, RecalculateFlowField},
 };
 use avian2d::prelude::{
     CoefficientCombine, Collider, Friction, LinearVelocity, LockedAxes, RigidBody,
-    TransformInterpolation, TranslationInterpolation,
+    TranslationInterpolation,
 };
 use bevy::prelude::*;
 
@@ -56,15 +53,26 @@ pub struct Unit {
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
-    NorthWest,
+    // NorthWest,
     North,
-    NorthEast,
+    // NorthEast,
     East,
-    SouthEast,
+    // SouthEast,
     South,
-    SouthWest,
+    // SouthWest,
     West,
 }
+impl Direction {
+    pub fn direction_to_vec2(&self) -> IVec2 {
+        match self {
+            Direction::North => IVec2 { x: 0, y: -1 },
+            Direction::East => IVec2 { x: 1, y: 0 },
+            Direction::South => IVec2 { x: 0, y: 1 },
+            Direction::West => IVec2 { x: -1, y: 0 },
+        }
+    }
+}
+
 impl Default for Direction {
     fn default() -> Self {
         Self::East
@@ -159,10 +167,11 @@ pub fn units_follow_field_system(
     time: Res<Time>,
 ) {
     for (mut velocity, mut direction, transform, speed) in unit_query.iter_mut() {
-        let tile = absolute_coord_to_tile_coord(AbsoluteCoordinates {
-            x: transform.translation.x,
-            y: transform.translation.y,
-        });
+        // let tile = absolute_coord_to_tile_coord(AbsoluteCoordinates {
+        //     x: transform.translation.x,
+        //     y: transform.translation.y,
+        // });
+        let tile = absolute_coord_to_tile_coord((*transform).into());
 
         if let Some(&delta) = flow_field.0.get(&tile) {
             let delta_time = time.delta_secs();
@@ -214,12 +223,14 @@ pub fn update_sprite_facing_system(mut query: Query<(&Direction, &mut Transform)
     for (facing_direction, mut transform) in query.iter_mut() {
         let is_moving_left = matches!(
             facing_direction,
-            Direction::West | Direction::NorthWest | Direction::SouthWest
+            // Direction::West | Direction::NorthWest | Direction::SouthWest
+            Direction::West
         );
 
         let is_moving_right = matches!(
             facing_direction,
-            Direction::East | Direction::NorthEast | Direction::SouthEast
+            // Direction::East | Direction::NorthEast | Direction::SouthEast
+            Direction::East
         );
 
         if is_moving_left {

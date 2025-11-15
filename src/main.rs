@@ -1,5 +1,5 @@
 use avian2d::prelude::*;
-use bevy::{diagnostic::FrameTimeDiagnosticsPlugin, platform::collections::HashMap, prelude::*};
+use bevy::{diagnostic::FrameTimeDiagnosticsPlugin, prelude::*};
 use stellar_routine_rust::{
     UPS_TARGET,
     camera::{
@@ -21,7 +21,7 @@ fn main() {
             DefaultPlugins
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        title: "Overlord".to_string(),
+                        title: "Stellar Routine".to_string(),
                         present_mode: bevy::window::PresentMode::AutoVsync,
                         ..default()
                     }),

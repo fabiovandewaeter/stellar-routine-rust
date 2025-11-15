@@ -60,7 +60,7 @@ pub fn handle_camera_inputs_system(
         (With<Camera>, Without<Player>),
     >,
     input: Res<ButtonInput<KeyCode>>,
-    mut input_mouse_wheel: EventReader<MouseWheel>,
+    mut input_mouse_wheel: MessageReader<MouseWheel>,
     player_query: Query<&Transform, With<Player>>,
     time: Res<Time>,
 ) {
