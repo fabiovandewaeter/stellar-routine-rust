@@ -5,8 +5,8 @@ use pathfinding::prelude::dijkstra_all;
 
 use crate::{
     map::{
-        Coordinates, MapManager, StructureManager, TileCoordinates, coord_to_tile_coord,
-        is_tile_walkable,
+        AbsoluteCoordinates, MapManager, StructureManager, TileCoordinates,
+        absolute_coord_to_tile_coord, is_tile_walkable,
     },
     units::Player,
 };
@@ -33,7 +33,7 @@ pub fn calculate_flow_field_system(
     mut message_recalculate: MessageReader<RecalculateFlowField>,
     mut flow_field: ResMut<FlowField>,
     map_manager: Res<MapManager>,
-    player_query: Query<&Coordinates, With<Player>>,
+    player_query: Query<&Transform, With<Player>>,
     chunk_query: Query<&StructureManager, With<TilemapChunk>>,
 ) {
     if message_recalculate.is_empty() {
@@ -41,10 +41,13 @@ pub fn calculate_flow_field_system(
     }
     message_recalculate.clear();
 
-    let Ok(player_coord) = player_query.single() else {
+    let Ok(transform) = player_query.single() else {
         return;
     };
-    let goal = coord_to_tile_coord(*player_coord);
+    let goal = absolute_coord_to_tile_coord(AbsoluteCoordinates {
+        x: transform.translation.x,
+        y: transform.translation.y,
+    });
 
     let cost_map = dijkstra_all(&goal, |&tile| {
         let mut neighbors = Vec::with_capacity(8);

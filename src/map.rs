@@ -34,7 +34,8 @@ impl Plugin for MapPlugin {
 }
 
 /// absolute_coord = (5.5 * TILE_SIZE.X, 0.5 * TILE_SIZE.y) | coord = (5.5, 0.5) | tile_coord = (5, 0)
-#[derive(Component, Default, Debug, Clone, Copy, PartialEq)]
+// #[derive(Component, Default, Debug, Clone, Copy, PartialEq)]
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct Coordinates {
     pub x: f32,
     pub y: f32,
@@ -89,7 +90,7 @@ pub struct MapManager {
 }
 
 #[derive(Component)]
-#[require(Coordinates)]
+// #[require(Coordinates)]
 pub struct Structure;
 
 #[derive(Component)]
@@ -138,7 +139,6 @@ pub fn spawn_one_chunk(
             if is_wall && (local_tile_coord.x > 2) && (local_tile_coord.y > 2) {
                 let tile_coord = local_tile_coord_to_tile_coord(local_tile_coord, chunk_coord);
                 let coord = tile_coord_to_coord(tile_coord);
-
                 let target_coord = coord_to_absolute_coord(coord);
                 let mut transform = Transform::default();
                 transform.translation.x = target_coord.x;
@@ -148,7 +148,6 @@ pub fn spawn_one_chunk(
                         Structure,
                         Wall,
                         Sprite::from_image(asset_server.load("structures/wall.png")),
-                        coord,
                         transform,
                     ))
                     .id();

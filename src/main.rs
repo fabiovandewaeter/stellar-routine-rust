@@ -77,7 +77,6 @@ fn setup_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         Sprite::from_image(player_texture_handle.clone()),
         transform,
-        // coordinates,
         Player,
         speed,
     ));
@@ -91,7 +90,6 @@ fn setup_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         Sprite::from_image(player_texture_handle.clone()),
         transform,
-        // coordinates,
     ));
 }
 

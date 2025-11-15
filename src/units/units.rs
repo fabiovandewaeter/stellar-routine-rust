@@ -1,6 +1,7 @@
 use crate::{
     map::{
-        AbsoluteCoordinates, Coordinates, TILE_SIZE, absolute_coord_to_coord, coord_to_tile_coord,
+        AbsoluteCoordinates, TILE_SIZE, absolute_coord_to_coord, absolute_coord_to_tile_coord,
+        coord_to_absolute_coord,
     },
     units::pathfinding::{FlowField, RecalculateFlowField},
 };
@@ -22,34 +23,12 @@ impl Plugin for UnitsPlugin {
         app.add_systems(
             FixedUpdate,
             (
-                (
-                    player_control_system,
-                    units_follow_field_system,
-                    update_sprite_facing_system,
-                    apply_floor_friction_system,
-                ),
-                sync_coords_system,
-            )
-                .chain(),
+                player_control_system,
+                units_follow_field_system,
+                update_sprite_facing_system,
+                apply_floor_friction_system,
+            ),
         );
-    }
-}
-
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Direction {
-    NorthWest,
-    North,
-    NorthEast,
-    East,
-    SouthEast,
-    South,
-    SouthWest,
-    West,
-}
-
-impl Default for Direction {
-    fn default() -> Self {
-        Self::East
     }
 }
 
@@ -57,7 +36,6 @@ impl Default for Direction {
 #[require(
     Sprite,
     Transform,
-    Coordinates,
     Direction,
     Speed,
     RigidBody::Dynamic,
@@ -75,9 +53,25 @@ pub struct Unit {
     pub name: String,
 }
 
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Direction {
+    NorthWest,
+    North,
+    NorthEast,
+    East,
+    SouthEast,
+    South,
+    SouthWest,
+    West,
+}
+impl Default for Direction {
+    fn default() -> Self {
+        Self::East
+    }
+}
+
 #[derive(Component, Debug, Clone, Copy, PartialEq)]
 pub struct Speed(pub f32);
-
 impl Default for Speed {
     fn default() -> Self {
         Self(UNIT_DEFAULT_MOVEMENT_SPEED)
@@ -135,34 +129,39 @@ pub fn player_control_system(
     }
 }
 
-fn sync_coords_system(mut query: Query<(&mut Coordinates, &Transform), With<Unit>>) {
-    for (mut coords, transform) in query.iter_mut() {
-        let abs = AbsoluteCoordinates {
-            x: transform.translation.x,
-            y: transform.translation.y,
-        };
+// fn sync_coords_system(mut query: Query<(&mut Transform), With<Unit>>) {
+//     for (mut transform) in query.iter_mut() {
+//         let abs = AbsoluteCoordinates {
+//             x: transform.translation.x,
+//             y: transform.translation.y,
+//         };
 
-        let new_coords = absolute_coord_to_coord(abs);
+//         let new_coords = absolute_coord_to_coord(abs);
 
-        // Si les coords ont effectivement changé, updater le composant
-        if (new_coords.x - coords.x).abs() > f32::EPSILON
-            || (new_coords.y - coords.y).abs() > f32::EPSILON
-        {
-            *coords = new_coords;
-        }
-    }
-}
+//         let coords = absolute_coord_to_coord(abs);
+//         if (new_coords.x - coords.x).abs() > f32::EPSILON
+//             || (new_coords.y - coords.y).abs() > f32::EPSILON
+//         {
+//             let new_absolute = coord_to_absolute_coord(new_coords);
+//             transform.translation.x = new_absolute.x;
+//             transform.translation.y = new_absolute.y;
+//         }
+//     }
+// }
 
 pub fn units_follow_field_system(
     mut unit_query: Query<
-        (&mut LinearVelocity, &mut Direction, &Coordinates, &Speed),
+        (&mut LinearVelocity, &mut Direction, &Transform, &Speed),
         (With<Unit>, Without<Player>),
     >,
     flow_field: Res<FlowField>,
     time: Res<Time>,
 ) {
-    for (mut velocity, mut direction, coord, speed) in unit_query.iter_mut() {
-        let tile = coord_to_tile_coord(*coord);
+    for (mut velocity, mut direction, transform, speed) in unit_query.iter_mut() {
+        let tile = absolute_coord_to_tile_coord(AbsoluteCoordinates {
+            x: transform.translation.x,
+            y: transform.translation.y,
+        });
 
         if let Some(&delta) = flow_field.0.get(&tile) {
             let delta_time = time.delta_secs();
