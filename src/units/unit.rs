@@ -194,10 +194,13 @@ pub fn apply_floor_friction_system(
 ) {
     const FRICTION_COEFF: f32 = 2.0;
     const CLAMP_LIMIT: f32 = 1e-4;
+    let delta_time = time.delta_secs();
     for mut velocity in unit_query.iter_mut() {
-        let factor = (1.0 - FRICTION_COEFF * time.delta_secs()).max(0.0);
-        velocity.x *= factor;
-        velocity.y *= factor;
+        // let factor = (1.0 - FRICTION_COEFF * delta_time).max(0.0);
+        // velocity.x *= factor;
+        // velocity.y *= factor;
+        velocity.y *= 1.0 / (1.0 + FRICTION_COEFF * delta_time);
+        velocity.x *= 1.0 / (1.0 + FRICTION_COEFF * delta_time);
 
         // tiny clamp pour éviter valeurs très petites qui trainent
         if velocity.length_squared() < CLAMP_LIMIT {

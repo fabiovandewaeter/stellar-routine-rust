@@ -1,4 +1,4 @@
 pub mod pathfinding;
-mod units;
+mod unit;
 
-pub use units::*;
+pub use unit::*;

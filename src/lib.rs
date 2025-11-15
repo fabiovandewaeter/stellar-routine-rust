@@ -1,4 +1,6 @@
 pub mod camera;
+pub mod items;
+pub mod machines;
 pub mod map;
 pub mod units;
 

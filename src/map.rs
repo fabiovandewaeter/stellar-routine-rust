@@ -89,8 +89,7 @@ pub struct MapManager {
     pub chunks: HashMap<ChunkCoordinates, Entity>,
 }
 
-#[derive(Component)]
-// #[require(Coordinates)]
+#[derive(Component, Default)]
 pub struct Structure;
 
 #[derive(Component)]
@@ -138,8 +137,9 @@ pub fn spawn_one_chunk(
             let is_wall = rng.random_bool(0.2);
             if is_wall && (local_tile_coord.x > 2) && (local_tile_coord.y > 2) {
                 let tile_coord = local_tile_coord_to_tile_coord(local_tile_coord, chunk_coord);
-                let coord = tile_coord_to_coord(tile_coord);
-                let target_coord = coord_to_absolute_coord(coord);
+                // let coord = tile_coord_to_coord(tile_coord);
+                // let target_coord = coord_to_absolute_coord(coord);
+                let target_coord = tile_coord_to_absolute_coord(tile_coord);
                 let mut transform = Transform::default();
                 transform.translation.x = target_coord.x;
                 transform.translation.y = target_coord.y;
@@ -170,12 +170,8 @@ pub fn spawn_one_chunk(
     let chunk_center_y = -(chunk_coord.y as f32 * CHUNK_SIZE.y as f32 + CHUNK_SIZE.y as f32 / 2.0)
         * tile_display_size.y as f32;
 
-    let chunk_transform = Transform::from_translation(Vec3::new(
-        chunk_center_x,
-        chunk_center_y,
-        //STRUCTURE_LAYER_LEVEL, // ou TILE_LAYER_LEVEL si tu veux que les tiles soient derrière/avant
-        -1.0,
-    ));
+    let chunk_transform =
+        Transform::from_translation(Vec3::new(chunk_center_x, chunk_center_y, -1.0));
 
     let tile_data: Vec<Option<TileData>> = (0..CHUNK_SIZE.element_product())
         // .map(|_| rng.random_range(0..5))
@@ -235,20 +231,22 @@ pub fn local_tile_coord_to_tile_coord(
 // Conversion coordonnées logiques -> monde ; (5.5, 0.5) => (5.5 * TILE_SIZE.x, 0.5 * TILE_SIZE.y)
 pub fn coord_to_absolute_coord(coord: Coordinates) -> AbsoluteCoordinates {
     AbsoluteCoordinates {
-        x: (coord.x + 0.5) * TILE_SIZE.x as f32,
-        y: -((coord.y + 0.5) * TILE_SIZE.y as f32),
+        // x: (coord.x + 0.5) * TILE_SIZE.x as f32,
+        // y: -((coord.y + 0.5) * TILE_SIZE.y as f32),
+        x: (coord.x) * TILE_SIZE.x as f32,
+        y: -((coord.y) * TILE_SIZE.y as f32),
     }
 }
 
 // // adds 0.5 to coordinates to make entities spawn based on the corner of there sprite and not the center
-// pub fn tile_coord_to_absolute_coord(tile_coord: TileCoordinates) -> AbsoluteCoordinates {
-//     AbsoluteCoordinates {
-//         x: tile_coord.x as f32 * TILE_SIZE.x + TILE_SIZE.x * 0.5,
-//         y: -(tile_coord.y as f32 * TILE_SIZE.y + TILE_SIZE.y * 0.5),
-//         // x: tile_coord.x as f32 * TILE_SIZE.x,
-//         // y: -(tile_coord.y as f32 * TILE_SIZE.y),
-//     }
-// }
+pub fn tile_coord_to_absolute_coord(tile_coord: TileCoordinates) -> AbsoluteCoordinates {
+    AbsoluteCoordinates {
+        // x: tile_coord.x as f32 * TILE_SIZE.x + TILE_SIZE.x * 0.5,
+        // y: -(tile_coord.y as f32 * TILE_SIZE.y + TILE_SIZE.y * 0.5),
+        x: tile_coord.x as f32 * TILE_SIZE.x,
+        y: -(tile_coord.y as f32 * TILE_SIZE.y),
+    }
+}
 
 pub fn tile_coord_to_coord(tile_coord: TileCoordinates) -> Coordinates {
     Coordinates {
