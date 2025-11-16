@@ -1,47 +1,8 @@
+use crate::items::{ItemStack, ItemType};
+use bevy::prelude::*;
 use std::mem::replace;
 
-use bevy::prelude::*;
-
 const DEFAULT_INVENTORY_CAPACITY: u32 = 10;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ItemType {
-    IronPlate,
-    CopperPlate,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Quality {
-    Perfect,
-    Standard,
-    Defective,
-}
-
-impl Default for Quality {
-    fn default() -> Self {
-        Quality::Standard
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ItemStack {
-    pub item_type: ItemType,
-    pub quality: Quality,
-    pub quantity: u32,
-}
-impl ItemStack {
-    pub fn new(item_type: ItemType, quality: Quality, quantity: u32) -> Self {
-        Self {
-            item_type,
-            quality,
-            quantity,
-        }
-    }
-
-    pub fn can_stack_with(&self, other: &Self) -> bool {
-        self.item_type == other.item_type && self.quality == other.quality
-    }
-}
 
 #[derive(Component)]
 pub struct Inventory {
@@ -68,6 +29,29 @@ impl Inventory {
 
     pub fn remove_all_item_stack(&mut self) -> Vec<ItemStack> {
         replace(&mut self.slots, Vec::new())
+    }
+
+    pub fn enough_quantity(&self, item_type: ItemType, quantity: u32) -> bool {
+        for slot in self.slots.iter() {
+            if slot.item_type == item_type && slot.quantity >= quantity {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn remove_quantity(&mut self, item_type: ItemType, quantity: u32) {
+        if let Some(pos) = self
+            .slots
+            .iter()
+            .position(|slot| slot.item_type == item_type && slot.quantity >= quantity)
+        {
+            self.slots[pos].quantity -= quantity;
+
+            if self.slots[pos].quantity <= 0 {
+                self.slots.remove(pos);
+            }
+        }
     }
 }
 

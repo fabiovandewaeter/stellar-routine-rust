@@ -7,8 +7,8 @@ use rand::Rng;
 use std::collections::HashMap;
 
 use crate::{
-    items::inventory::{ItemStack, ItemType, Quality},
-    machine::ProductionMachine,
+    items::{ItemStack, ItemType, Quality, recipe::RecipeId},
+    machine::{BeltMachine, CraftingMachine, Machine},
     units::{Direction, pathfinding::RecalculateFlowField},
 };
 
@@ -191,17 +191,16 @@ pub fn spawn_one_chunk(
     let tile_coord = local_tile_coord_to_tile_coord(local_tile_coord, chunk_coord);
     let target_coord = tile_coord_to_absolute_coord(tile_coord);
     let transform = Transform::from_xyz(target_coord.x, target_coord.y, STRUCTURE_LAYER);
-    let mut production_machine = ProductionMachine::default();
+    let mut machine = Machine::default();
     let item_stack = ItemStack::new(ItemType::IronPlate, Quality::Perfect, 1);
-    production_machine
-        .input_inventory
-        .add_item_stack(item_stack);
+    machine.input_inventory.add_item_stack(item_stack);
     let machine_entity = commands
         .spawn((
             Name::new("Machine 1"),
             Structure,
             // ProductionMachine::default(),
-            production_machine,
+            machine,
+            BeltMachine,
             Sprite::from_image(asset_server.load("structures/machine.png")),
             Direction::North,
             transform,
@@ -218,7 +217,9 @@ pub fn spawn_one_chunk(
         .spawn((
             Name::new("Machine 2"),
             Structure,
-            ProductionMachine::default(),
+            // ProductionMachine::default(),
+            Machine::default(),
+            CraftingMachine::new(RecipeId::IronPlateToIronGear),
             Sprite::from_image(asset_server.load("structures/machine.png")),
             Direction::South,
             transform,

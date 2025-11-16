@@ -6,6 +6,7 @@ use stellar_routine_rust::{
         CameraMovement, CameraMovementKind, UpsCounter, display_fps_ups_system,
         handle_camera_inputs_system,
     },
+    items::recipe::RecipeBook,
     machine::{MachinePlugin, print_machine_inventories_system},
     map::{Coordinates, MapPlugin, coord_to_absolute_coord},
     units::{
@@ -43,6 +44,7 @@ fn main() {
             last_second: 0.0,
             ups: 0,
         })
+        .insert_resource(RecipeBook::default())
         .insert_resource(Time::<Fixed>::from_hz(UPS_TARGET as f64))
         .add_systems(Startup, setup_system)
         .add_systems(

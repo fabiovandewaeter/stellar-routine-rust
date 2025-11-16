@@ -1,4 +1,5 @@
 pub mod inventory;
 mod item;
+pub mod recipe;
 
-use item::*;
+pub use item::*;
