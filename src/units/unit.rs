@@ -1,10 +1,12 @@
 use crate::{
-    map::{TILE_SIZE, absolute_coord_to_tile_coord},
+    map::{
+        AbsoluteCoordinates, TILE_SIZE, absolute_coord_to_tile_coord, tile_coord_to_absolute_coord,
+    },
     units::pathfinding::{FlowField, RecalculateFlowField},
 };
 use avian2d::prelude::{
-    CoefficientCombine, Collider, Friction, LinearVelocity, LockedAxes, RigidBody,
-    TranslationInterpolation,
+    CoefficientCombine, Collider, Forces, Friction, LinearVelocity, LockedAxes, RigidBody,
+    RigidBodyForces, TranslationInterpolation,
 };
 use bevy::prelude::*;
 
@@ -94,7 +96,7 @@ pub fn player_control_system(
     mut unit_query: Query<(&mut LinearVelocity, &mut Direction, &Speed), With<Player>>,
     input: Res<ButtonInput<KeyCode>>,
     mut message_recalculate: MessageWriter<RecalculateFlowField>,
-    time: Res<Time>,
+    time: Res<Time<Fixed>>,
 ) {
     let Ok((mut velocity, mut direction, speed)) = unit_query.single_mut() else {
         return;
@@ -159,47 +161,134 @@ pub fn player_control_system(
 // }
 
 pub fn units_follow_field_system(
+    // mut unit_query: Query<
+    //     (&mut LinearVelocity, &mut Direction, &Transform, &Speed),
+    //     (With<Unit>, Without<Player>),
+    // >,
     mut unit_query: Query<
-        (&mut LinearVelocity, &mut Direction, &Transform, &Speed),
+        (
+            // &mut LinearVelocity,
+            &mut Direction,
+            Forces,
+            &Transform,
+            &Speed,
+        ),
         (With<Unit>, Without<Player>),
     >,
     flow_field: Res<FlowField>,
-    time: Res<Time>,
+    time: Res<Time<Fixed>>,
 ) {
-    for (mut velocity, mut direction, transform, speed) in unit_query.iter_mut() {
-        // let tile = absolute_coord_to_tile_coord(AbsoluteCoordinates {
-        //     x: transform.translation.x,
-        //     y: transform.translation.y,
-        // });
-        let tile = absolute_coord_to_tile_coord((*transform).into());
+    // const MAX_SPEED: f32 = 30.0;
+    const MAX_SPEED: f32 = 35.0;
+    const ARRIVAL_DISTANCE: f32 = TILE_SIZE.x * 0.25;
 
-        if let Some(&delta) = flow_field.0.get(&tile) {
-            let delta_time = time.delta_secs();
-            velocity.x = delta.x * speed.0 * delta_time;
-            velocity.y = -(delta.y * speed.0 * delta_time);
+    // for (mut velocity, mut direction, mut forces, transform, speed) in unit_query.iter_mut() {
+    for (mut direction, mut forces, transform, speed) in unit_query.iter_mut() {
+        // 1. Position actuelle de l'unité
+        let current_pos_world = transform.translation.xy();
+        let current_pos_abs = AbsoluteCoordinates {
+            x: current_pos_world.x,
+            y: current_pos_world.y,
+        };
+        let current_tile = absolute_coord_to_tile_coord(current_pos_abs);
 
-            if delta.y < 0.0 {
-                *direction = Direction::North;
+        // 2. Trouver la prochaine tuile cible depuis le flow field
+        // ASSUREZ-VOUS d'avoir aussi fait la modification du FlowField
+        // pour qu'il contienne des TileCoordinates (waypoints)
+        if let Some(&next_tile) = flow_field.0.get(&current_tile) {
+            // 3. Calculer la position CIBLE (le centre de la prochaine tuile)
+            let target_pos_abs = tile_coord_to_absolute_coord(next_tile);
+            let target_pos_world: Vec2 = target_pos_abs.into();
+
+            // 4. Calculer la direction et la force vers la cible
+            let to_target_vec = target_pos_world - current_pos_world;
+            let distance = to_target_vec.length();
+
+            if distance < ARRIVAL_DISTANCE {
+                // On freine activement l'unité pour la stabiliser
+                // MODIFIÉ : L'appel de fonction est identique, mais
+                // c'est sur l'objet `Forces`
+                // forces.apply_force(-velocity.0 * 5.0); // Simple "damping"
+                forces.apply_force(-forces.linear_velocity() * 5.0); // Simple "damping"
+                continue;
             }
-            if delta.y > 0.0 {
-                *direction = Direction::South;
+
+            let direction_to_target = to_target_vec.normalize_or_zero();
+
+            // 5. Appliquer la FORCE
+            // MODIFIÉ : L'appel de fonction est identique
+            forces.apply_force(direction_to_target * speed.0);
+
+            // 6. Mettre à jour la direction du sprite (logique inchangée)
+            let abs_x = direction_to_target.x.abs();
+            let abs_y = direction_to_target.y.abs();
+
+            if abs_x > abs_y {
+                *direction = if direction_to_target.x > 0.0 {
+                    Direction::East
+                } else {
+                    Direction::West
+                };
+            } else {
+                // Note : J'ai inversé North/South car votre système de
+                // coordonnées Y semble inversé (le joueur va "vers le haut"
+                // avec `delta.y += 1.0` mais `absolute_coord_to_coord`
+                // utilise `-absolute_coord.y`). À VÉRIFIER.
+                // Si la direction du sprite est fausse, inversez North/South ici.
+                *direction = if direction_to_target.y > 0.0 {
+                    Direction::North
+                } else {
+                    Direction::South
+                };
             }
-            if delta.x < 0.0 {
-                *direction = Direction::West;
-            }
-            if delta.x > 0.0 {
-                *direction = Direction::East;
+
+            // 7. BRIDER la vitesse (logique inchangée)
+            // if velocity.0.length_squared() > MAX_SPEED * MAX_SPEED {
+            //     velocity.0 = velocity.0.normalize_or_zero() * MAX_SPEED;
+            // }
+            if forces.linear_velocity().length_squared() > MAX_SPEED * MAX_SPEED {
+                *forces.linear_velocity_mut() =
+                    forces.linear_velocity().normalize_or_zero() * MAX_SPEED;
             }
         } else {
-            velocity.x = 0.0;
-            velocity.y = 0.0;
+            // Pas de chemin dans le flow field (on est sur la cible ou bloqué)
+            // On freine activement
+            // MODIFIÉ : L'appel de fonction est identique
+            forces.apply_force(-forces.linear_velocity() * 10.0);
+
+            if forces.linear_velocity().length_squared() < 0.1 {
+                *forces.linear_velocity_mut() = Vec2::ZERO;
+            }
         }
+
+        // let tile = absolute_coord_to_tile_coord((*transform).into());
+        // if let Some(&delta) = flow_field.0.get(&tile) {
+        //     let delta_time = time.delta_secs();
+        //     velocity.x = delta.x * speed.0 * delta_time;
+        //     velocity.y = -(delta.y * speed.0 * delta_time);
+
+        //     if delta.y < 0.0 {
+        //         *direction = Direction::North;
+        //     }
+        //     if delta.y > 0.0 {
+        //         *direction = Direction::South;
+        //     }
+        //     if delta.x < 0.0 {
+        //         *direction = Direction::West;
+        //     }
+        //     if delta.x > 0.0 {
+        //         *direction = Direction::East;
+        //     }
+        // } else {
+        //     velocity.x = 0.0;
+        //     velocity.y = 0.0;
+        // }
     }
 }
 
 pub fn apply_floor_friction_system(
     mut unit_query: Query<&mut LinearVelocity, (With<Unit>, Without<Player>)>,
-    time: Res<Time>,
+    time: Res<Time<Fixed>>,
 ) {
     const FRICTION_COEFF: f32 = 2.0;
     const CLAMP_LIMIT: f32 = 1e-4;

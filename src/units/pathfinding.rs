@@ -1,20 +1,18 @@
-use std::collections::HashMap;
-
-use bevy::{prelude::*, sprite_render::TilemapChunk};
-use bevy_egui::egui::debug_text::print;
-use pathfinding::prelude::dijkstra_all;
-
 use crate::{
     map::{MapManager, StructureManager, TileCoordinates, absolute_coord_to_tile_coord},
     units::Player,
 };
+use bevy::{prelude::*, sprite_render::TilemapChunk};
+use pathfinding::prelude::dijkstra_all;
+use std::collections::HashMap;
 
 const FLOWFIELD_RADIUS: i32 = 50; // radius in tile
 
 pub struct PathfindingPlugin;
 
 #[derive(Resource, Default)]
-pub struct FlowField(pub HashMap<TileCoordinates, Vec2>);
+// pub struct FlowField(pub HashMap<TileCoordinates, Vec2>);
+pub struct FlowField(pub HashMap<TileCoordinates, TileCoordinates>);
 
 #[derive(Message, Default)]
 pub struct RecalculateFlowField;
@@ -44,6 +42,7 @@ pub fn calculate_flow_field_system(
     };
     let goal = absolute_coord_to_tile_coord((*transform).into());
 
+    // TODO: regarder si on devrait utiliser dijkstra_partial ou dijkstra_reach
     let cost_map = dijkstra_all(&goal, |&tile| {
         let mut neighbors = Vec::with_capacity(8);
         for y in -1..=1 {
@@ -137,13 +136,13 @@ pub fn calculate_flow_field_system(
 
             // si on a trouvé un chemin vers le player
             if best_neighbor != tile {
-                let direction = Vec2::new(
-                    (best_neighbor.x - tile.x) as f32,
-                    (best_neighbor.y - tile.y) as f32,
-                )
-                .normalize_or_zero();
-
-                flow_field.0.insert(tile, direction);
+                // let direction = Vec2::new(
+                //     (best_neighbor.x - tile.x) as f32,
+                //     (best_neighbor.y - tile.y) as f32,
+                // )
+                // .normalize_or_zero();
+                // flow_field.0.insert(tile, direction);
+                flow_field.0.insert(tile, best_neighbor);
             }
         }
     }

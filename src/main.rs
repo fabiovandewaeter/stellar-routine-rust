@@ -94,6 +94,7 @@ fn setup_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         Sprite::from_image(player_texture_handle.clone()),
         transform,
+        Speed(UNIT_DEFAULT_MOVEMENT_SPEED * 50.5),
     ));
 }
 
