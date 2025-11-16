@@ -37,7 +37,7 @@ impl Default for RecipeBook {
             Recipe {
                 inputs: vec![ItemStack {
                     item_type: ItemType::IronPlate,
-                    quantity: 1,
+                    quantity: 2,
                     quality: Quality::Standard,
                 }],
                 outputs: vec![ItemStack {

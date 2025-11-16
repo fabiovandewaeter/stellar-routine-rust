@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use crate::{
     items::{ItemStack, ItemType, Quality, recipe::RecipeId},
     machine::{BeltMachine, CraftingMachine, Machine},
-    units::{Direction, pathfinding::RecalculateFlowField},
+    units::{Direction, Unit, pathfinding::RecalculateFlowField},
 };
 
 pub const TILE_SIZE: Vec2 = Vec2 { x: 16.0, y: 16.0 };
@@ -24,13 +24,13 @@ impl Plugin for MapPlugin {
         app.insert_resource(MapManager::default()).add_systems(
             PostStartup,
             spawn_one_chunk
-            // FixedUpdate,
-            // (
-            //     spawn_chunks_around_camera_system,
-            //     spawn_chunks_around_units_system,
-            // )
-            // .chain()
         )
+        .add_systems(FixedUpdate, 
+        (
+            // spawn_chunks_around_camera_system,
+            spawn_chunks_around_units_system,
+        )
+            .chain())
         .add_systems(Update, update_tileset_image)
         // .add_systems(Update, ())
         ;
@@ -155,7 +155,6 @@ pub fn spawn_one_chunk(
 ) -> () {
     let mut rng = rand::rng();
     let chunk_coord = ChunkCoordinates { x: 0, y: 0 };
-    let mut chunk_was_modified = false;
     let mut structure_manager = StructureManager::default();
     for x in 0..CHUNK_SIZE.x {
         for y in 0..CHUNK_SIZE.y {
@@ -181,8 +180,6 @@ pub fn spawn_one_chunk(
                 structure_manager
                     .structures
                     .insert(local_tile_coord, wall_entity);
-
-                chunk_was_modified = true;
             }
         }
     }
@@ -192,11 +189,11 @@ pub fn spawn_one_chunk(
     let target_coord = tile_coord_to_absolute_coord(tile_coord);
     let transform = Transform::from_xyz(target_coord.x, target_coord.y, STRUCTURE_LAYER);
     let mut machine = Machine::default();
-    let item_stack = ItemStack::new(ItemType::IronPlate, Quality::Perfect, 1);
+    let item_stack = ItemStack::new(ItemType::IronPlate, Quality::Perfect, 10);
     machine.input_inventory.add_item_stack(item_stack);
     let machine_entity = commands
         .spawn((
-            Name::new("Machine 1"),
+            Name::new("Belt machine"),
             Structure,
             // ProductionMachine::default(),
             machine,
@@ -215,7 +212,7 @@ pub fn spawn_one_chunk(
     let transform = Transform::from_xyz(target_coord.x, target_coord.y, STRUCTURE_LAYER);
     let machine_entity = commands
         .spawn((
-            Name::new("Machine 2"),
+            Name::new("Crafting machine"),
             Structure,
             // ProductionMachine::default(),
             Machine::default(),
@@ -229,9 +226,7 @@ pub fn spawn_one_chunk(
         .structures
         .insert(local_tile_coord, machine_entity);
 
-    if chunk_was_modified {
-        message_recalculate.write_default();
-    }
+    message_recalculate.write_default();
 
     let tile_display_size = UVec2::splat(TILE_SIZE.x as u32);
     let chunk_center_x = (chunk_coord.x as f32 * CHUNK_SIZE.x as f32 + CHUNK_SIZE.x as f32 / 2.0)
@@ -431,56 +426,104 @@ pub fn coord_to_chunk_coord(coord: Coordinates) -> ChunkCoordinates {
 //     }
 // }
 
-// fn spawn_chunks_around_units_system(
-//     mut commands: Commands,
-//     asset_server: Res<AssetServer>,
-//     unit_query: Query<(&Coordinates), With<Unit>>,
-//     mut multi_map_manager: ResMut<MultiMapManager>,
-//     camera_query: Query<With<Camera>>,
-// ) {
-//     const SIZE: i32 = 2;
+fn spawn_chunks_around_units_system(
+    unit_query: Query<&Transform, With<Unit>>,
+    chunk_query: Query<&StructureManager, With<TilemapChunk>>,
+    mut map_manager: ResMut<MapManager>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut message_recalculate: MessageWriter<RecalculateFlowField>,
+) {
+    const SIZE: i32 = 2;
 
-//     // Récupérer la map active (celle de la caméra)
-//     let active_map_id = if let Ok(camera_map) = camera_query.get_single() {
-//         camera_map.map_id
-//     } else {
-//         MapId(0) // Fallback vers la map principale
-//     };
+    for unit_transform in unit_query.iter() {
+        let unit_chunk_coord = absolute_coord_to_chunk_coord((*unit_transform).into());
+        for y in (unit_chunk_coord.y - SIZE)..(unit_chunk_coord.y + SIZE) {
+            for x in (unit_chunk_coord.x - SIZE)..(unit_chunk_coord.x + SIZE) {
+                let chunk_coord = ChunkCoordinates { x, y };
+                if map_manager.chunks.contains_key(&chunk_coord) {
+                    continue;
+                }
 
-//     // Ne spawner des chunks que pour les unités sur la map active
-//     for (unit_tile_coord, current_map) in unit_query.iter() {
-//         if current_map.map_id != active_map_id {
-//             continue; // Ignore les unités sur d'autres maps
-//         }
+                let mut rng = rand::rng();
+                let mut structure_manager = StructureManager::default();
+                for x in 0..CHUNK_SIZE.x {
+                    for y in 0..CHUNK_SIZE.y {
+                        let local_tile_coord = LocalTileCoordinates {
+                            x: x as i32,
+                            y: y as i32,
+                        };
 
-//         let unit_chunk_coord = rounded_tile_coord_to_rounded_chunk(*unit_tile_coord);
+                        let is_wall = rng.random_bool(0.2);
+                        if is_wall && (local_tile_coord.x > 2) && (local_tile_coord.y > 2) {
+                            let tile_coord =
+                                local_tile_coord_to_tile_coord(local_tile_coord, chunk_coord);
+                            let target_coord = tile_coord_to_absolute_coord(tile_coord);
+                            let transform = Transform::from_xyz(
+                                target_coord.x,
+                                target_coord.y,
+                                STRUCTURE_LAYER,
+                            );
+                            let wall_entity = commands
+                                .spawn((
+                                    Structure,
+                                    Wall,
+                                    Sprite::from_image(asset_server.load("structures/wall.png")),
+                                    transform,
+                                ))
+                                .id();
+                            structure_manager
+                                .structures
+                                .insert(local_tile_coord, wall_entity);
+                        }
+                    }
+                }
 
-//         if let Some(map_data) = multi_map_manager.maps.get_mut(&current_map.map_id) {
-//             for y in (unit_chunk_coord.y - SIZE)..(unit_chunk_coord.y + SIZE) {
-//                 for x in (unit_chunk_coord.x - SIZE)..(unit_chunk_coord.x + SIZE) {
-//                     let chunk_coord = Chunkcoord { x, y };
-//                     if !map_data
-//                         .chunk_manager
-//                         .spawned_chunks
-//                         .contains_key(&chunk_coord)
-//                     {
-//                         let entity = spawn_chunk(
-//                             &mut commands,
-//                             &asset_server,
-//                             &mut map_data.structure_manager,
-//                             chunk_coord,
-//                             current_map.map_id,
-//                         );
-//                         map_data
-//                             .chunk_manager
-//                             .spawned_chunks
-//                             .insert(chunk_coord, entity);
-//                     }
-//                 }
-//             }
-//         }
-//     }
-// }
+                message_recalculate.write_default();
+
+                let tile_display_size = UVec2::splat(TILE_SIZE.x as u32);
+                let chunk_center_x = (chunk_coord.x as f32 * CHUNK_SIZE.x as f32
+                    + CHUNK_SIZE.x as f32 / 2.0)
+                    * tile_display_size.x as f32;
+                let chunk_center_y = -(chunk_coord.y as f32 * CHUNK_SIZE.y as f32
+                    + CHUNK_SIZE.y as f32 / 2.0)
+                    * tile_display_size.y as f32;
+
+                let chunk_transform = Transform::from_translation(Vec3::new(
+                    chunk_center_x,
+                    chunk_center_y,
+                    TILE_LAYER,
+                ));
+
+                let tile_data: Vec<Option<TileData>> = (0..CHUNK_SIZE.element_product())
+                    // .map(|_| rng.random_range(0..5))
+                    .map(|_| rng.random_range(1..2))
+                    .map(|i| {
+                        if i == 0 {
+                            None
+                        } else {
+                            Some(TileData::from_tileset_index(i - 1))
+                        }
+                    })
+                    .collect();
+                let chunk_entity = commands
+                    .spawn((
+                        TilemapChunk {
+                            chunk_size: CHUNK_SIZE,
+                            tile_display_size,
+                            tileset: asset_server.load("textures/array_texture.png"),
+                            ..default()
+                        },
+                        TilemapChunkTileData(tile_data),
+                        structure_manager,
+                        chunk_transform,
+                    ))
+                    .id();
+                map_manager.chunks.insert(chunk_coord, chunk_entity);
+            }
+        }
+    }
+}
 
 // #[cfg(test)]
 // mod tests {
