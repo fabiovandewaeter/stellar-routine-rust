@@ -6,6 +6,7 @@ use stellar_routine_rust::{
         CameraMovement, CameraMovementKind, UpsCounter, display_fps_ups_system,
         handle_camera_inputs_system,
     },
+    machine::{MachinePlugin, print_machine_inventories_system},
     map::{Coordinates, MapPlugin, coord_to_absolute_coord},
     units::{
         Player, Speed, UNIT_DEFAULT_MOVEMENT_SPEED, UNIT_LAYER, Unit, UnitsPlugin,
@@ -34,6 +35,7 @@ fn main() {
         .add_plugins(UnitsPlugin)
         .add_plugins(MapPlugin)
         .add_plugins(PathfindingPlugin)
+        .add_plugins(MachinePlugin)
         .insert_resource(Gravity(Vec2::ZERO))
         // .insert_resource(TimeState::default())
         .insert_resource(UpsCounter {
@@ -51,7 +53,7 @@ fn main() {
                 // control_time_system,
             ),
         )
-        .add_systems(FixedUpdate, update_logic_system)
+        .add_systems(FixedUpdate, (update_logic_system,))
         .run();
 }
 
@@ -67,7 +69,6 @@ fn setup_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     let player_texture_handle = asset_server.load("default.png");
-    // let speed = Speed(UNIT_DEFAULT_MOVEMENT_SPEED * 2.0);
     let speed = Speed(UNIT_DEFAULT_MOVEMENT_SPEED);
     let coordinates = Coordinates { x: 0.0, y: 0.0 };
     let absolute_coordinates = coord_to_absolute_coord(coordinates);
@@ -75,9 +76,8 @@ fn setup_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         Transform::from_xyz(absolute_coordinates.x, absolute_coordinates.y, UNIT_LAYER);
     transform.scale *= 0.8;
     commands.spawn((
-        Unit {
-            name: "Player".into(),
-        },
+        Unit,
+        Name::new("Player"),
         Sprite::from_image(player_texture_handle.clone()),
         transform,
         Player,
@@ -90,9 +90,8 @@ fn setup_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         Transform::from_xyz(absolute_coordinates.x, absolute_coordinates.y, UNIT_LAYER);
     transform.scale *= 0.8;
     commands.spawn((
-        Unit {
-            name: "Monstre".into(),
-        },
+        Unit,
+        Name::new("Monstre"),
         Sprite::from_image(player_texture_handle.clone()),
         transform,
         Speed(UNIT_DEFAULT_MOVEMENT_SPEED * 20.0),

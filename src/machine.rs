@@ -1,3 +1,5 @@
+use std::f32::consts::{FRAC_2_PI, FRAC_PI_2, PI};
+
 use bevy::{prelude::*, sprite_render::TilemapChunk};
 
 use crate::{
@@ -9,8 +11,24 @@ use crate::{
 
 const DEFAULT_CRAFT_TIME_TICKS: u64 = UPS_TARGET as u64 * 1; // 1 second
 
+pub struct MachinePlugin;
+
+impl Plugin for MachinePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(PostUpdate, orient_machines_system)
+            .add_systems(
+                FixedUpdate,
+                (
+                    process_production_in_machines_system,
+                    transfert_items_to_next_machine_system,
+                    print_machine_inventories_system,
+                ),
+            );
+    }
+}
+
 #[derive(Component)]
-#[require(Structure, Direction)]
+#[require(Name, Structure, Direction)]
 pub struct ProductionMachine {
     pub craft_time_ticks: u64,
     pub progress_ticks: u64,
@@ -87,5 +105,31 @@ pub fn transfert_items_to_next_machine_system(
                     .expect("transfer didn't work and couldn't add items back in source_machine");
             }
         }
+    }
+}
+
+pub fn print_machine_inventories_system(query: Query<(&Name, &ProductionMachine)>) {
+    for (name, production_machine) in query.iter() {
+        println!(
+            "{:?}: {:?} | {:?}",
+            name,
+            production_machine.input_inventory.slots,
+            production_machine.output_inventory.slots
+        )
+    }
+}
+
+pub fn orient_machines_system(
+    mut query: Query<(&Direction, &mut Transform), With<ProductionMachine>>,
+) {
+    for (direction, mut transform) in query.iter_mut() {
+        let angle = match direction {
+            Direction::North => 0.0,       // up = sprite par défaut
+            Direction::East => -FRAC_PI_2, // right = -90°
+            Direction::South => PI,        // down = 180°
+            Direction::West => FRAC_PI_2,  // left = +90°
+        };
+
+        transform.rotation = Quat::from_rotation_z(angle);
     }
 }

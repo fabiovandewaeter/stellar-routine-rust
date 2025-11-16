@@ -6,7 +6,11 @@ use bevy::{
 use rand::Rng;
 use std::collections::HashMap;
 
-use crate::{machine::ProductionMachine, units::pathfinding::RecalculateFlowField};
+use crate::{
+    items::inventory::{ItemStack, ItemType, Quality},
+    machine::ProductionMachine,
+    units::{Direction, pathfinding::RecalculateFlowField},
+};
 
 pub const TILE_SIZE: Vec2 = Vec2 { x: 16.0, y: 16.0 };
 pub const CHUNK_SIZE: UVec2 = UVec2 { x: 32, y: 32 };
@@ -187,11 +191,36 @@ pub fn spawn_one_chunk(
     let tile_coord = local_tile_coord_to_tile_coord(local_tile_coord, chunk_coord);
     let target_coord = tile_coord_to_absolute_coord(tile_coord);
     let transform = Transform::from_xyz(target_coord.x, target_coord.y, STRUCTURE_LAYER);
+    let mut production_machine = ProductionMachine::default();
+    let item_stack = ItemStack::new(ItemType::IronPlate, Quality::Perfect, 1);
+    production_machine
+        .input_inventory
+        .add_item_stack(item_stack);
     let machine_entity = commands
         .spawn((
+            Name::new("Machine 1"),
+            Structure,
+            // ProductionMachine::default(),
+            production_machine,
+            Sprite::from_image(asset_server.load("structures/machine.png")),
+            Direction::North,
+            transform,
+        ))
+        .id();
+    structure_manager
+        .structures
+        .insert(local_tile_coord, machine_entity);
+    let local_tile_coord = LocalTileCoordinates { x: 1, y: 0 };
+    let tile_coord = local_tile_coord_to_tile_coord(local_tile_coord, chunk_coord);
+    let target_coord = tile_coord_to_absolute_coord(tile_coord);
+    let transform = Transform::from_xyz(target_coord.x, target_coord.y, STRUCTURE_LAYER);
+    let machine_entity = commands
+        .spawn((
+            Name::new("Machine 2"),
             Structure,
             ProductionMachine::default(),
             Sprite::from_image(asset_server.load("structures/machine.png")),
+            Direction::South,
             transform,
         ))
         .id();

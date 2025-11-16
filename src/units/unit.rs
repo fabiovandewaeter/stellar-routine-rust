@@ -11,7 +11,6 @@ use avian2d::prelude::{
 use bevy::prelude::*;
 
 pub const UNIT_REACH: f32 = 1.0;
-// pub const UNIT_DEFAULT_SIZE: f32 = 1.0;
 pub const UNIT_DEFAULT_SIZE: f32 = TILE_SIZE.x * 0.8;
 pub const UNIT_DEFAULT_MOVEMENT_SPEED: f32 = 2000.0;
 pub const UNIT_LAYER: f32 = 1.0;
@@ -34,6 +33,7 @@ impl Plugin for UnitsPlugin {
 
 #[derive(Component, Debug, Default)]
 #[require(
+    Name,
     Sprite,
     Transform,
     Direction,
@@ -50,19 +50,13 @@ impl Plugin for UnitsPlugin {
     TranslationInterpolation,
     LinearDamping(20.0)
 )]
-pub struct Unit {
-    pub name: String,
-}
+pub struct Unit;
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
-    // NorthWest,
     North,
-    // NorthEast,
     East,
-    // SouthEast,
     South,
-    // SouthWest,
     West,
 }
 impl Direction {
@@ -260,71 +254,6 @@ pub fn units_follow_field_system(
     }
 }
 
-// pub fn units_follow_field_system(
-//     mut unit_query: Query<
-//         (
-//             &mut LinearVelocity, // <--- On remet LinearVelocity
-//             &mut Direction,
-//             &Transform,
-//             &Speed,
-//         ),
-//         (With<Unit>, Without<Player>),
-//     >,
-//     flow_field: Res<FlowField>,
-//     time: Res<Time<Fixed>>, // <--- IMPORTANT: Utilisez Time<Fixed>
-// ) {
-//     for (mut velocity, mut direction, transform, speed) in unit_query.iter_mut() {
-//         // 1. Position actuelle de l'unité
-//         let current_pos_world = transform.translation.xy();
-//         let current_pos_abs = AbsoluteCoordinates {
-//             x: current_pos_world.x,
-//             y: current_pos_world.y,
-//         };
-//         let current_tile = absolute_coord_to_tile_coord(current_pos_abs);
-
-//         // 2. Trouver la prochaine tuile cible depuis le flow field
-//         if let Some(&next_tile) = flow_field.0.get(&current_tile) {
-//             // 3. Calculer la position CIBLE (le centre de la prochaine tuile)
-//             let target_pos_abs = tile_coord_to_absolute_coord(next_tile);
-//             let target_pos_world: Vec2 = target_pos_abs.into();
-
-//             // 4. Calculer la direction vers la cible
-//             let to_target_vec = target_pos_world - current_pos_world;
-//             let direction_to_target = to_target_vec.normalize_or_zero();
-
-//             // 5. Calculer la vélocité comme le fait le joueur
-//             let delta_time = time.delta_secs();
-//             let target_velocity = direction_to_target * speed.0 * delta_time;
-
-//             // 6. Assignation DIRECTE (c'est ce qui causera le blocage)
-//             velocity.x = target_velocity.x;
-//             velocity.y = target_velocity.y;
-
-//             // 7. Mettre à jour la direction du sprite
-//             let abs_x = direction_to_target.x.abs();
-//             let abs_y = direction_to_target.y.abs();
-
-//             if abs_x > abs_y {
-//                 *direction = if direction_to_target.x > 0.0 {
-//                     Direction::East
-//                 } else {
-//                     Direction::West
-//                 };
-//             } else {
-//                 *direction = if direction_to_target.y > 0.0 {
-//                     Direction::North
-//                 } else {
-//                     Direction::South
-//                 };
-//             }
-//         } else {
-//             // Pas de chemin, on s'arrête
-//             velocity.x = 0.0;
-//             velocity.y = 0.0;
-//         }
-//     }
-// }
-
 pub fn apply_floor_friction_system(
     mut unit_query: Query<&mut LinearVelocity, (With<Unit>, Without<Player>)>,
     time: Res<Time<Fixed>>,
@@ -333,9 +262,6 @@ pub fn apply_floor_friction_system(
     const CLAMP_LIMIT: f32 = 1e-4;
     let delta_time = time.delta_secs();
     for mut velocity in unit_query.iter_mut() {
-        // let factor = (1.0 - FRICTION_COEFF * delta_time).max(0.0);
-        // velocity.x *= factor;
-        // velocity.y *= factor;
         velocity.y *= 1.0 / (1.0 + FRICTION_COEFF * delta_time);
         velocity.x *= 1.0 / (1.0 + FRICTION_COEFF * delta_time);
 
@@ -349,17 +275,9 @@ pub fn apply_floor_friction_system(
 
 pub fn update_sprite_facing_system(mut query: Query<(&Direction, &mut Transform)>) {
     for (facing_direction, mut transform) in query.iter_mut() {
-        let is_moving_left = matches!(
-            facing_direction,
-            // Direction::West | Direction::NorthWest | Direction::SouthWest
-            Direction::West
-        );
+        let is_moving_left = matches!(facing_direction, Direction::West);
 
-        let is_moving_right = matches!(
-            facing_direction,
-            // Direction::East | Direction::NorthEast | Direction::SouthEast
-            Direction::East
-        );
+        let is_moving_right = matches!(facing_direction, Direction::East);
 
         if is_moving_left {
             transform.scale.x = -transform.scale.x.abs();
