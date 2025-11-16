@@ -67,7 +67,8 @@ fn setup_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     let player_texture_handle = asset_server.load("default.png");
-    let speed = Speed(UNIT_DEFAULT_MOVEMENT_SPEED * 2.0);
+    // let speed = Speed(UNIT_DEFAULT_MOVEMENT_SPEED * 2.0);
+    let speed = Speed(UNIT_DEFAULT_MOVEMENT_SPEED);
     let coordinates = Coordinates { x: 0.0, y: 0.0 };
     let absolute_coordinates = coord_to_absolute_coord(coordinates);
     let mut transform =
@@ -94,7 +95,7 @@ fn setup_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         Sprite::from_image(player_texture_handle.clone()),
         transform,
-        Speed(UNIT_DEFAULT_MOVEMENT_SPEED * 50.5),
+        Speed(UNIT_DEFAULT_MOVEMENT_SPEED * 20.0),
     ));
 }
 

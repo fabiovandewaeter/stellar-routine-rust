@@ -51,6 +51,10 @@ pub fn calculate_flow_field_system(
                     continue;
                 }
 
+                if x != 0 && y != 0 {
+                    continue;
+                }
+
                 let neighbor_tile = TileCoordinates {
                     x: tile.x + x,
                     y: tile.y + y,
@@ -120,6 +124,10 @@ pub fn calculate_flow_field_system(
                         continue;
                     }
 
+                    if dx != 0 && dy != 0 {
+                        continue;
+                    }
+
                     let neighbor_tile = TileCoordinates {
                         x: tile.x + dx,
                         y: tile.y + dy,
@@ -136,12 +144,6 @@ pub fn calculate_flow_field_system(
 
             // si on a trouvé un chemin vers le player
             if best_neighbor != tile {
-                // let direction = Vec2::new(
-                //     (best_neighbor.x - tile.x) as f32,
-                //     (best_neighbor.y - tile.y) as f32,
-                // )
-                // .normalize_or_zero();
-                // flow_field.0.insert(tile, direction);
                 flow_field.0.insert(tile, best_neighbor);
             }
         }

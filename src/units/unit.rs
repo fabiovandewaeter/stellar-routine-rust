@@ -5,15 +5,15 @@ use crate::{
     units::pathfinding::{FlowField, RecalculateFlowField},
 };
 use avian2d::prelude::{
-    CoefficientCombine, Collider, Forces, Friction, LinearVelocity, LockedAxes, RigidBody,
-    RigidBodyForces, TranslationInterpolation,
+    CoefficientCombine, Collider, Forces, Friction, LinearDamping, LinearVelocity, LockedAxes,
+    RigidBody, RigidBodyForces, TranslationInterpolation,
 };
 use bevy::prelude::*;
 
 pub const UNIT_REACH: f32 = 1.0;
 // pub const UNIT_DEFAULT_SIZE: f32 = 1.0;
 pub const UNIT_DEFAULT_SIZE: f32 = TILE_SIZE.x * 0.8;
-pub const UNIT_DEFAULT_MOVEMENT_SPEED: f32 = 1000.0;
+pub const UNIT_DEFAULT_MOVEMENT_SPEED: f32 = 2000.0;
 pub const UNIT_LAYER: f32 = 1.0;
 
 pub struct UnitsPlugin;
@@ -26,7 +26,7 @@ impl Plugin for UnitsPlugin {
                 player_control_system,
                 units_follow_field_system,
                 update_sprite_facing_system,
-                apply_floor_friction_system,
+                // apply_floor_friction_system,
             ),
         );
     }
@@ -47,7 +47,8 @@ impl Plugin for UnitsPlugin {
         static_coefficient: 0.0,
         combine_rule: CoefficientCombine::Multiply,
     },
-    TranslationInterpolation
+    TranslationInterpolation,
+    LinearDamping(20.0)
 )]
 pub struct Unit {
     pub name: String,
@@ -204,14 +205,13 @@ pub fn units_follow_field_system(
             let to_target_vec = target_pos_world - current_pos_world;
             let distance = to_target_vec.length();
 
-            if distance < ARRIVAL_DISTANCE {
-                // On freine activement l'unité pour la stabiliser
-                // MODIFIÉ : L'appel de fonction est identique, mais
-                // c'est sur l'objet `Forces`
-                // forces.apply_force(-velocity.0 * 5.0); // Simple "damping"
-                forces.apply_force(-forces.linear_velocity() * 5.0); // Simple "damping"
-                continue;
-            }
+            // if distance < ARRIVAL_DISTANCE {
+            //     // On freine activement l'unité pour la stabiliser
+            //     // MODIFIÉ : L'appel de fonction est identique, mais
+            //     // c'est sur l'objet `Forces`
+            //     forces.apply_force(-forces.linear_velocity() * 5.0); // Simple "damping"
+            //     continue;
+            // }
 
             let direction_to_target = to_target_vec.normalize_or_zero();
 
@@ -243,48 +243,87 @@ pub fn units_follow_field_system(
             }
 
             // 7. BRIDER la vitesse (logique inchangée)
-            // if velocity.0.length_squared() > MAX_SPEED * MAX_SPEED {
-            //     velocity.0 = velocity.0.normalize_or_zero() * MAX_SPEED;
-            // }
             if forces.linear_velocity().length_squared() > MAX_SPEED * MAX_SPEED {
                 *forces.linear_velocity_mut() =
                     forces.linear_velocity().normalize_or_zero() * MAX_SPEED;
             }
-        } else {
-            // Pas de chemin dans le flow field (on est sur la cible ou bloqué)
-            // On freine activement
-            // MODIFIÉ : L'appel de fonction est identique
-            forces.apply_force(-forces.linear_velocity() * 10.0);
+            // } else {
+            //     // Pas de chemin dans le flow field (on est sur la cible ou bloqué)
+            //     // On freine activement
+            //     // MODIFIÉ : L'appel de fonction est identique
+            //     forces.apply_force(-forces.linear_velocity() * 10.0);
 
-            if forces.linear_velocity().length_squared() < 0.1 {
-                *forces.linear_velocity_mut() = Vec2::ZERO;
-            }
+            //     if forces.linear_velocity().length_squared() < 0.1 {
+            //         *forces.linear_velocity_mut() = Vec2::ZERO;
+            //     }
         }
-
-        // let tile = absolute_coord_to_tile_coord((*transform).into());
-        // if let Some(&delta) = flow_field.0.get(&tile) {
-        //     let delta_time = time.delta_secs();
-        //     velocity.x = delta.x * speed.0 * delta_time;
-        //     velocity.y = -(delta.y * speed.0 * delta_time);
-
-        //     if delta.y < 0.0 {
-        //         *direction = Direction::North;
-        //     }
-        //     if delta.y > 0.0 {
-        //         *direction = Direction::South;
-        //     }
-        //     if delta.x < 0.0 {
-        //         *direction = Direction::West;
-        //     }
-        //     if delta.x > 0.0 {
-        //         *direction = Direction::East;
-        //     }
-        // } else {
-        //     velocity.x = 0.0;
-        //     velocity.y = 0.0;
-        // }
     }
 }
+
+// pub fn units_follow_field_system(
+//     mut unit_query: Query<
+//         (
+//             &mut LinearVelocity, // <--- On remet LinearVelocity
+//             &mut Direction,
+//             &Transform,
+//             &Speed,
+//         ),
+//         (With<Unit>, Without<Player>),
+//     >,
+//     flow_field: Res<FlowField>,
+//     time: Res<Time<Fixed>>, // <--- IMPORTANT: Utilisez Time<Fixed>
+// ) {
+//     for (mut velocity, mut direction, transform, speed) in unit_query.iter_mut() {
+//         // 1. Position actuelle de l'unité
+//         let current_pos_world = transform.translation.xy();
+//         let current_pos_abs = AbsoluteCoordinates {
+//             x: current_pos_world.x,
+//             y: current_pos_world.y,
+//         };
+//         let current_tile = absolute_coord_to_tile_coord(current_pos_abs);
+
+//         // 2. Trouver la prochaine tuile cible depuis le flow field
+//         if let Some(&next_tile) = flow_field.0.get(&current_tile) {
+//             // 3. Calculer la position CIBLE (le centre de la prochaine tuile)
+//             let target_pos_abs = tile_coord_to_absolute_coord(next_tile);
+//             let target_pos_world: Vec2 = target_pos_abs.into();
+
+//             // 4. Calculer la direction vers la cible
+//             let to_target_vec = target_pos_world - current_pos_world;
+//             let direction_to_target = to_target_vec.normalize_or_zero();
+
+//             // 5. Calculer la vélocité comme le fait le joueur
+//             let delta_time = time.delta_secs();
+//             let target_velocity = direction_to_target * speed.0 * delta_time;
+
+//             // 6. Assignation DIRECTE (c'est ce qui causera le blocage)
+//             velocity.x = target_velocity.x;
+//             velocity.y = target_velocity.y;
+
+//             // 7. Mettre à jour la direction du sprite
+//             let abs_x = direction_to_target.x.abs();
+//             let abs_y = direction_to_target.y.abs();
+
+//             if abs_x > abs_y {
+//                 *direction = if direction_to_target.x > 0.0 {
+//                     Direction::East
+//                 } else {
+//                     Direction::West
+//                 };
+//             } else {
+//                 *direction = if direction_to_target.y > 0.0 {
+//                     Direction::North
+//                 } else {
+//                     Direction::South
+//                 };
+//             }
+//         } else {
+//             // Pas de chemin, on s'arrête
+//             velocity.x = 0.0;
+//             velocity.y = 0.0;
+//         }
+//     }
+// }
 
 pub fn apply_floor_friction_system(
     mut unit_query: Query<&mut LinearVelocity, (With<Unit>, Without<Player>)>,
