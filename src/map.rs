@@ -74,15 +74,6 @@ pub struct TileCoordinates {
     pub y: i32,
 }
 
-impl TileCoordinates {
-    pub fn to_chunk_coord(self) -> ChunkCoordinates {
-        ChunkCoordinates {
-            x: self.x * CHUNK_SIZE.x as i32,
-            y: self.y * CHUNK_SIZE.y as i32,
-        }
-    }
-}
-
 #[derive(Default, Debug, Hash, Clone, Copy, PartialEq, Eq)]
 pub struct LocalTileCoordinates {
     pub x: i32,
@@ -374,8 +365,10 @@ pub fn chunk_coord_to_tile_coord(chunk_coord: ChunkCoordinates) -> TileCoordinat
 
 pub fn tile_coord_to_chunk_coord(tile_coord: TileCoordinates) -> ChunkCoordinates {
     ChunkCoordinates {
-        x: tile_coord.x / CHUNK_SIZE.x as i32,
-        y: tile_coord.y / CHUNK_SIZE.y as i32,
+        // x: tile_coord.x / CHUNK_SIZE.x as i32,
+        // y: tile_coord.y / CHUNK_SIZE.y as i32,
+        x: tile_coord.x.div_euclid(CHUNK_SIZE.x as i32),
+        y: tile_coord.y.div_euclid(CHUNK_SIZE.y as i32),
     }
 }
 
