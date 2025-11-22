@@ -7,8 +7,7 @@ use stellar_routine_rust::{
         handle_camera_inputs_system,
     },
     items::recipe::RecipeBook,
-    machine::{MachinePlugin, print_machine_inventories_system},
-    map::{Coordinates, MapPlugin, coord_to_absolute_coord},
+    map::{Coordinates, MapPlugin, coord_to_absolute_coord, machine::MachinePlugin},
     units::{
         Player, Speed, UNIT_DEFAULT_MOVEMENT_SPEED, UNIT_LAYER, Unit, UnitsPlugin,
         pathfinding::PathfindingPlugin,

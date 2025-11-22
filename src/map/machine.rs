@@ -1,6 +1,7 @@
 use crate::{
     UPS_TARGET,
     items::{
+        ItemStack,
         inventory::Inventory,
         recipe::{RecipeBook, RecipeId},
     },
@@ -22,8 +23,11 @@ impl Plugin for MachinePlugin {
             .add_systems(
                 FixedUpdate,
                 (
-                    process_crafting_machines_system,
-                    process_belt_machines_system,
+                    (
+                        process_crafting_machines_system,
+                        process_belt_machines_system,
+                        process_mining_machines_system,
+                    ),
                     transfert_items_to_next_machine_system,
                     print_machine_inventories_system,
                 ),
@@ -74,6 +78,48 @@ impl Default for CraftingMachine {
     }
 }
 
+#[derive(Component)]
+#[require(Machine)]
+pub struct MiningMachine {
+    pub mined_item: Option<ItemStack>,
+}
+impl MiningMachine {
+    pub fn new(mined_item: ItemStack) -> Self {
+        Self {
+            mined_item: Some(mined_item),
+        }
+    }
+}
+impl Default for MiningMachine {
+    fn default() -> Self {
+        Self { mined_item: None }
+    }
+}
+
+pub fn process_belt_machines_system(mut machine_query: Query<&mut Machine, With<BeltMachine>>) {
+    for mut machine in machine_query.iter_mut() {
+        if machine.action_progress_ticks >= machine.action_time_ticks {
+            let item_stacks = machine.input_inventory.remove_all_item_stack();
+            for item_stack in item_stacks {
+                machine.output_inventory.add_item_stack(item_stack).expect(
+                    "process_belt_machines_system(): transfer to output_inventory didn't work",
+                );
+            }
+            machine.action_progress_ticks = 0;
+        }
+
+        // start if previous action finised and there is items in input_inventory
+        if machine.action_progress_ticks == 0 && !machine.input_inventory.slots.is_empty() {
+            machine.action_time_ticks =
+                (DEFAULT_ACTION_TIME_TICKS as f32 / machine.action_speed) as u64;
+            // TODO: see if need to change to 0
+            machine.action_progress_ticks = 1;
+        } else if machine.action_progress_ticks > 0 {
+            machine.action_progress_ticks += 1;
+        }
+    }
+}
+
 pub fn process_crafting_machines_system(
     mut machine_query: Query<(&mut Machine, &CraftingMachine)>,
     recipe_book: Res<RecipeBook>,
@@ -89,9 +135,11 @@ pub fn process_crafting_machines_system(
         // use machine.action_time_ticks instead of recipe.base_craft_time_ticks because machine.action_time_ticks change because of machine.action_speed
         if machine.action_progress_ticks >= machine.action_time_ticks {
             for item_stack in &recipe.outputs {
-                machine.output_inventory.add_item_stack(*item_stack);
+                machine
+                    .output_inventory
+                    .add_item_stack(*item_stack)
+                    .expect("add_item_stack() didn't work");
             }
-
             machine.action_progress_ticks = 0;
         }
 
@@ -128,20 +176,25 @@ pub fn process_crafting_machines_system(
     }
 }
 
-pub fn process_belt_machines_system(mut machine_query: Query<&mut Machine, With<BeltMachine>>) {
-    for mut machine in machine_query.iter_mut() {
+pub fn process_mining_machines_system(mut machine_query: Query<(&mut Machine, &MiningMachine)>) {
+    for (mut machine, mining_machine) in machine_query.iter_mut() {
+        let Some(mined_item) = mining_machine.mined_item else {
+            continue;
+        };
+
         if machine.action_progress_ticks >= machine.action_time_ticks {
-            let item_stacks = machine.input_inventory.remove_all_item_stack();
-            for item_stack in item_stacks {
-                machine.output_inventory.add_item_stack(item_stack).expect(
-                    "process_belt_machines_system(): transfer to output_inventory didn't work",
+            let new_item_stack = mined_item.clone();
+            machine
+                .output_inventory
+                .add_item_stack(new_item_stack)
+                .expect(
+                    "process_mining_machines_system(): transfer to output_inventory didn't work",
                 );
-            }
             machine.action_progress_ticks = 0;
         }
 
-        // start if previous action finised and there is items in input_inventory
-        if machine.action_progress_ticks == 0 && !machine.input_inventory.slots.is_empty() {
+        // start if previous action finised
+        if machine.action_progress_ticks == 0 {
             machine.action_time_ticks =
                 (DEFAULT_ACTION_TIME_TICKS as f32 / machine.action_speed) as u64;
             // TODO: see if need to change to 0

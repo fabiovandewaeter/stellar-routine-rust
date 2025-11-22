@@ -1,5 +1,8 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ItemType {
+    IronOre,
+    CooperOre,
+
     IronPlate,
     CopperPlate,
 

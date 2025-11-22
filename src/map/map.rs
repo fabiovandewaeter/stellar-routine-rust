@@ -1,6 +1,6 @@
 use crate::{
     items::{ItemStack, ItemType, Quality, recipe::RecipeId},
-    machine::{BeltMachine, CraftingMachine, Machine},
+    map::machine::{BeltMachine, CraftingMachine, Machine, MiningMachine},
     units::{Direction, Unit, pathfinding::RecalculateFlowField},
 };
 use avian2d::prelude::{CoefficientCombine, Collider, Friction, RigidBody};
@@ -15,8 +15,9 @@ pub const TILE_SIZE: Vec2 = Vec2 { x: 16.0, y: 16.0 };
 pub const CHUNK_SIZE: UVec2 = UVec2 { x: 32, y: 32 };
 pub const TILE_LAYER: f32 = -1.0;
 pub const STRUCTURE_LAYER: f32 = 0.0;
-pub const PATH_STRUCTURES_PNG: &'static str = "tiles/structures";
-pub const PATH_SOURCES_PNG: &'static str = "tiles/sources";
+pub const SOURCE_LAYER: f32 = -0.1;
+pub const PATH_STRUCTURES_PNG: &'static str = "tiles/structures/";
+pub const PATH_SOURCES_PNG: &'static str = "tiles/sources/";
 
 pub struct MapPlugin;
 
@@ -141,10 +142,10 @@ pub struct Structure;
 #[derive(Component)]
 pub struct Wall;
 
-#[derive(Component, Default)]
-pub struct Source;
 #[derive(Component)]
-pub struct IronOre;
+pub struct Source(pub ItemStack);
+// #[derive(Component)]
+// pub struct IronOre();
 
 pub fn spawn_one_chunk(
     mut commands: Commands,
@@ -168,15 +169,15 @@ pub fn spawn_one_chunk(
             if (local_tile_coord.x > 2) && (local_tile_coord.y > 2) {
                 let tile_coord = local_tile_coord_to_tile_coord(local_tile_coord, chunk_coord);
                 let target_coord = tile_coord_to_absolute_coord(tile_coord);
-                let transform =
-                    Transform::from_xyz(target_coord.x, target_coord.y, STRUCTURE_LAYER);
                 if is_wall {
+                    let transform =
+                        Transform::from_xyz(target_coord.x, target_coord.y, STRUCTURE_LAYER);
                     let wall_entity = commands
                         .spawn((
                             Structure,
                             Wall,
                             Sprite::from_image(
-                                asset_server.load(PATH_STRUCTURES_PNG.to_owned() + "/wall.png"),
+                                asset_server.load(PATH_STRUCTURES_PNG.to_owned() + "wall.png"),
                             ),
                             transform,
                         ))
@@ -185,12 +186,19 @@ pub fn spawn_one_chunk(
                         .structures
                         .insert(local_tile_coord, wall_entity);
                 } else if is_source {
+                    let transform =
+                        Transform::from_xyz(target_coord.x, target_coord.y, SOURCE_LAYER);
+                    let item_stack = ItemStack {
+                        item_type: ItemType::IronOre,
+                        quality: Quality::Standard,
+                        quantity: 3,
+                    };
                     let source_entity = commands
                         .spawn((
-                            Source,
-                            IronOre,
+                            Source(item_stack),
+                            // IronOre,
                             Sprite::from_image(
-                                asset_server.load(PATH_SOURCES_PNG.to_owned() + "/iron_ore.png"),
+                                asset_server.load(PATH_SOURCES_PNG.to_owned() + "iron_ore.png"),
                             ),
                             transform,
                         ))
@@ -219,7 +227,9 @@ pub fn spawn_one_chunk(
             Structure,
             machine,
             BeltMachine,
-            Sprite::from_image(asset_server.load(PATH_STRUCTURES_PNG.to_owned() + "/machine.png")),
+            Sprite::from_image(
+                asset_server.load(PATH_STRUCTURES_PNG.to_owned() + "belt_machine.png"),
+            ),
             Direction::North,
             transform,
         ))
@@ -237,7 +247,9 @@ pub fn spawn_one_chunk(
             Structure,
             Machine::default(),
             CraftingMachine::new(RecipeId::IronPlateToIronGear),
-            Sprite::from_image(asset_server.load(PATH_STRUCTURES_PNG.to_owned() + "/machine.png")),
+            Sprite::from_image(
+                asset_server.load(PATH_STRUCTURES_PNG.to_owned() + "crafting_machine.png"),
+            ),
             Direction::South,
             transform,
         ))
@@ -412,7 +424,7 @@ pub fn coord_to_chunk_coord(coord: Coordinates) -> ChunkCoordinates {
 
 fn spawn_chunks_around_units_system(
     unit_query: Query<&Transform, With<Unit>>,
-    // chunk_query: Query<&StructureLayerManager, With<TilemapChunk>>,
+    // chunk_query: Query<(&StructureLayerManager, &SourceLayerManager), With<TilemapChunk>>,
     mut map_manager: ResMut<MapManager>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -445,19 +457,19 @@ fn spawn_chunks_around_units_system(
                             let tile_coord =
                                 local_tile_coord_to_tile_coord(local_tile_coord, chunk_coord);
                             let target_coord = tile_coord_to_absolute_coord(tile_coord);
-                            let transform = Transform::from_xyz(
-                                target_coord.x,
-                                target_coord.y,
-                                STRUCTURE_LAYER,
-                            );
                             if is_wall {
+                                let transform = Transform::from_xyz(
+                                    target_coord.x,
+                                    target_coord.y,
+                                    STRUCTURE_LAYER,
+                                );
                                 let wall_entity = commands
                                     .spawn((
                                         Structure,
                                         Wall,
                                         Sprite::from_image(
                                             asset_server
-                                                .load(PATH_STRUCTURES_PNG.to_owned() + "/wall.png"),
+                                                .load(PATH_STRUCTURES_PNG.to_owned() + "wall.png"),
                                         ),
                                         transform,
                                     ))
@@ -466,20 +478,52 @@ fn spawn_chunks_around_units_system(
                                     .structures
                                     .insert(local_tile_coord, wall_entity);
                             } else if is_resource {
-                                let source_entity =
-                                    commands
-                                        .spawn((
-                                            Source,
-                                            IronOre,
-                                            Sprite::from_image(asset_server.load(
-                                                PATH_SOURCES_PNG.to_owned() + "/iron_ore.png",
-                                            )),
-                                            transform,
-                                        ))
-                                        .id();
+                                let transform = Transform::from_xyz(
+                                    target_coord.x,
+                                    target_coord.y,
+                                    SOURCE_LAYER,
+                                );
+                                let item_stack = ItemStack {
+                                    item_type: ItemType::IronOre,
+                                    quality: Quality::Standard,
+                                    quantity: 3,
+                                };
+                                let source = Source(item_stack);
+                                let source_entity = commands
+                                    .spawn((
+                                        source,
+                                        // IronOre,
+                                        Sprite::from_image(
+                                            asset_server
+                                                .load(PATH_SOURCES_PNG.to_owned() + "iron_ore.png"),
+                                        ),
+                                        transform,
+                                    ))
+                                    .id();
                                 source_layer_manager
                                     .sources
                                     .insert(local_tile_coord, source_entity);
+
+                                if local_tile_coord.x < 5 && local_tile_coord.y < 5 {
+                                    let machine = Machine::default();
+                                    let machine_entity = commands
+                                        .spawn((
+                                            Name::new("Mining machine"),
+                                            Structure,
+                                            machine,
+                                            MiningMachine::new(item_stack),
+                                            Sprite::from_image(asset_server.load(
+                                                PATH_STRUCTURES_PNG.to_owned()
+                                                    + "mining_machine.png",
+                                            )),
+                                            Direction::North,
+                                            transform,
+                                        ))
+                                        .id();
+                                    structure_layer_manager
+                                        .structures
+                                        .insert(local_tile_coord, machine_entity);
+                                }
                             }
                         }
                     }
@@ -503,7 +547,7 @@ fn spawn_chunks_around_units_system(
                         machine,
                         BeltMachine,
                         Sprite::from_image(
-                            asset_server.load(PATH_STRUCTURES_PNG.to_owned() + "/machine.png"),
+                            asset_server.load(PATH_STRUCTURES_PNG.to_owned() + "belt_machine.png"),
                         ),
                         Direction::North,
                         transform,
@@ -524,7 +568,8 @@ fn spawn_chunks_around_units_system(
                         Machine::default(),
                         CraftingMachine::new(RecipeId::IronPlateToIronGear),
                         Sprite::from_image(
-                            asset_server.load(PATH_STRUCTURES_PNG.to_owned() + "/machine.png"),
+                            asset_server
+                                .load(PATH_STRUCTURES_PNG.to_owned() + "crafting_machine.png"),
                         ),
                         Direction::South,
                         transform,
