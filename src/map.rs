@@ -21,19 +21,17 @@ pub struct MapPlugin;
 
 impl Plugin for MapPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(MapManager::default()).add_systems(
-            PostStartup,
-            spawn_one_chunk
-        )
-        .add_systems(FixedUpdate, 
-        (
-            // spawn_chunks_around_camera_system,
-            spawn_chunks_around_units_system,
-        )
-            .chain())
-        .add_systems(Update, update_tileset_image)
-        // .add_systems(Update, ())
-        ;
+        app.insert_resource(MapManager::default())
+            .add_systems(PostStartup, spawn_one_chunk)
+            .add_systems(
+                FixedUpdate,
+                (
+                    // spawn_chunks_around_camera_system,
+                    spawn_chunks_around_units_system,
+                )
+                    .chain(),
+            )
+            .add_systems(Update, update_tileset_image);
     }
 }
 
@@ -379,45 +377,6 @@ pub fn coord_to_chunk_coord(coord: Coordinates) -> ChunkCoordinates {
     }
 }
 // ==========================================
-
-// fn spawn_chunks_around_camera_system(
-//     mut commands: Commands,
-//     asset_server: Res<AssetServer>,
-//     camera_query: Query<(&Transform), With<Camera>>,
-//     mut multi_map_manager: ResMut<MultiMapManager>,
-// ) {
-//     const SIZE: i32 = 4;
-//     if let Ok((transform, camera_map)) = camera_query.single() {
-//         let camera_chunk_coord = world_coord_to_rounded_chunk(transform.translation.xy());
-//         let active_map_id = camera_map.map_id;
-
-//         // Récupérer les données de la map de la caméra
-//         if let Some(map_data) = multi_map_manager.maps.get_mut(&active_map_id) {
-//             for y in (camera_chunk_coord.y - SIZE)..(camera_chunk_coord.y + SIZE) {
-//                 for x in (camera_chunk_coord.x - SIZE)..(camera_chunk_coord.x + SIZE) {
-//                     let chunk_coord = Chunkcoord { x, y };
-//                     if !map_data
-//                         .chunk_manager
-//                         .spawned_chunks
-//                         .contains_key(&chunk_coord)
-//                     {
-//                         let entity = spawn_chunk(
-//                             &mut commands,
-//                             &asset_server,
-//                             &mut map_data.structure_manager,
-//                             chunk_coord,
-//                             active_map_id,
-//                         );
-//                         map_data
-//                             .chunk_manager
-//                             .spawned_chunks
-//                             .insert(chunk_coord, entity);
-//                     }
-//                 }
-//             }
-//         }
-//     }
-// }
 
 fn spawn_chunks_around_units_system(
     unit_query: Query<&Transform, With<Unit>>,

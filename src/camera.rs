@@ -77,10 +77,11 @@ pub fn handle_camera_inputs_system(
         match camera_movement.0 {
             CameraMovementKind::SmoothFollowPlayer => {
                 let Vec3 { x, y, .. } = player_transform.translation;
-                let direction = Vec3::new(x, y, camera_transform.translation.z);
-                camera_transform
+                let target = Vec3::new(x, y, camera_transform.translation.z);
+                let smoothness = 10.0;
+                camera_transform.translation = camera_transform
                     .translation
-                    .smooth_nudge(&direction, 2., time.delta_secs());
+                    .lerp(target, (smoothness * time.delta_secs()).min(1.0));
             }
             CameraMovementKind::DirectFollowPlayer => {
                 camera_transform.translation = player_transform.translation;

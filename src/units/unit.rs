@@ -12,7 +12,8 @@ use bevy::prelude::*;
 
 pub const UNIT_REACH: f32 = 1.0;
 pub const UNIT_DEFAULT_SIZE: f32 = TILE_SIZE.x * 0.8;
-pub const UNIT_DEFAULT_MOVEMENT_SPEED: f32 = 2000.0;
+// pub const UNIT_DEFAULT_MOVEMENT_SPEED: f32 = 2000.0;
+pub const UNIT_DEFAULT_MOVEMENT_SPEED: f32 = 5000.0;
 pub const UNIT_LAYER: f32 = 1.0;
 
 pub struct UnitsPlugin;
@@ -237,10 +238,11 @@ pub fn units_follow_field_system(
             }
 
             // 7. BRIDER la vitesse (logique inchangée)
-            if forces.linear_velocity().length_squared() > MAX_SPEED * MAX_SPEED {
-                *forces.linear_velocity_mut() =
-                    forces.linear_velocity().normalize_or_zero() * MAX_SPEED;
-            }
+            // if forces.linear_velocity().length_squared() > MAX_SPEED * MAX_SPEED {
+            //     *forces.linear_velocity_mut() =
+            //         forces.linear_velocity().normalize_or_zero() * MAX_SPEED;
+            // }
+
             // } else {
             //     // Pas de chemin dans le flow field (on est sur la cible ou bloqué)
             //     // On freine activement
