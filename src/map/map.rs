@@ -1,3 +1,8 @@
+use crate::{
+    items::{ItemStack, ItemType, Quality, recipe::RecipeId},
+    machine::{BeltMachine, CraftingMachine, Machine},
+    units::{Direction, Unit, pathfinding::RecalculateFlowField},
+};
 use avian2d::prelude::{CoefficientCombine, Collider, Friction, RigidBody};
 use bevy::{
     prelude::*,
@@ -6,16 +11,12 @@ use bevy::{
 use rand::Rng;
 use std::collections::HashMap;
 
-use crate::{
-    items::{ItemStack, ItemType, Quality, recipe::RecipeId},
-    machine::{BeltMachine, CraftingMachine, Machine},
-    units::{Direction, Unit, pathfinding::RecalculateFlowField},
-};
-
 pub const TILE_SIZE: Vec2 = Vec2 { x: 16.0, y: 16.0 };
 pub const CHUNK_SIZE: UVec2 = UVec2 { x: 32, y: 32 };
 pub const TILE_LAYER: f32 = -1.0;
 pub const STRUCTURE_LAYER: f32 = 0.0;
+pub const PATH_STRUCTURES_PNG: &'static str = "tiles/structures";
+pub const PATH_SOURCES_PNG: &'static str = "tiles/sources";
 
 pub struct MapPlugin;
 
@@ -87,8 +88,13 @@ pub struct ChunkCoordinates {
 }
 
 #[derive(Component, Default, Debug)]
-pub struct StructureManager {
+pub struct StructureLayerManager {
     pub structures: HashMap<LocalTileCoordinates, Entity>, // local TileCoordinates -> structure
+}
+
+#[derive(Component, Default, Debug)]
+pub struct SourceLayerManager {
+    pub sources: HashMap<LocalTileCoordinates, Entity>, // local TileCoordinates -> source
 }
 
 /// Données spécifiques à chaque map
@@ -100,7 +106,7 @@ impl MapManager {
     pub fn get_tile(
         &self,
         tile: TileCoordinates,
-        chunk_query: &Query<&StructureManager, With<TilemapChunk>>,
+        chunk_query: &Query<&StructureLayerManager, With<TilemapChunk>>,
     ) -> Option<Entity> {
         let chunk_coord = tile_coord_to_chunk_coord(tile);
         if let Some(chunk_entity) = self.chunks.get(&chunk_coord) {
@@ -115,7 +121,7 @@ impl MapManager {
     pub fn is_tile_walkable(
         &self,
         tile: TileCoordinates,
-        chunk_query: &Query<&StructureManager, With<TilemapChunk>>,
+        chunk_query: &Query<&StructureLayerManager, With<TilemapChunk>>,
     ) -> bool {
         self.get_tile(tile, chunk_query).is_none()
     }
@@ -132,9 +138,13 @@ impl MapManager {
     },
 )]
 pub struct Structure;
-
 #[derive(Component)]
 pub struct Wall;
+
+#[derive(Component, Default)]
+pub struct Source;
+#[derive(Component)]
+pub struct IronOre;
 
 pub fn spawn_one_chunk(
     mut commands: Commands,
@@ -144,7 +154,8 @@ pub fn spawn_one_chunk(
 ) -> () {
     let mut rng = rand::rng();
     let chunk_coord = ChunkCoordinates { x: 0, y: 0 };
-    let mut structure_manager = StructureManager::default();
+    let mut structure_layer_manager = StructureLayerManager::default();
+    let mut source_layer_manager = SourceLayerManager::default();
     for x in 0..CHUNK_SIZE.x {
         for y in 0..CHUNK_SIZE.y {
             let local_tile_coord = LocalTileCoordinates {
@@ -153,22 +164,41 @@ pub fn spawn_one_chunk(
             };
 
             let is_wall = rng.random_bool(0.2);
-            if is_wall && (local_tile_coord.x > 2) && (local_tile_coord.y > 2) {
+            let is_source = rng.random_bool(0.2);
+            if (local_tile_coord.x > 2) && (local_tile_coord.y > 2) {
                 let tile_coord = local_tile_coord_to_tile_coord(local_tile_coord, chunk_coord);
                 let target_coord = tile_coord_to_absolute_coord(tile_coord);
                 let transform =
                     Transform::from_xyz(target_coord.x, target_coord.y, STRUCTURE_LAYER);
-                let wall_entity = commands
-                    .spawn((
-                        Structure,
-                        Wall,
-                        Sprite::from_image(asset_server.load("structures/wall.png")),
-                        transform,
-                    ))
-                    .id();
-                structure_manager
-                    .structures
-                    .insert(local_tile_coord, wall_entity);
+                if is_wall {
+                    let wall_entity = commands
+                        .spawn((
+                            Structure,
+                            Wall,
+                            Sprite::from_image(
+                                asset_server.load(PATH_STRUCTURES_PNG.to_owned() + "/wall.png"),
+                            ),
+                            transform,
+                        ))
+                        .id();
+                    structure_layer_manager
+                        .structures
+                        .insert(local_tile_coord, wall_entity);
+                } else if is_source {
+                    let source_entity = commands
+                        .spawn((
+                            Source,
+                            IronOre,
+                            Sprite::from_image(
+                                asset_server.load(PATH_SOURCES_PNG.to_owned() + "/iron_ore.png"),
+                            ),
+                            transform,
+                        ))
+                        .id();
+                    source_layer_manager
+                        .sources
+                        .insert(local_tile_coord, source_entity);
+                }
             }
         }
     }
@@ -179,20 +209,22 @@ pub fn spawn_one_chunk(
     let transform = Transform::from_xyz(target_coord.x, target_coord.y, STRUCTURE_LAYER);
     let mut machine = Machine::default();
     let item_stack = ItemStack::new(ItemType::IronPlate, Quality::Perfect, 10);
-    machine.input_inventory.add_item_stack(item_stack);
+    machine
+        .input_inventory
+        .add_item_stack(item_stack)
+        .expect("add_item_stack() didn't work");
     let machine_entity = commands
         .spawn((
             Name::new("Belt machine"),
             Structure,
-            // ProductionMachine::default(),
             machine,
             BeltMachine,
-            Sprite::from_image(asset_server.load("structures/machine.png")),
+            Sprite::from_image(asset_server.load(PATH_STRUCTURES_PNG.to_owned() + "/machine.png")),
             Direction::North,
             transform,
         ))
         .id();
-    structure_manager
+    structure_layer_manager
         .structures
         .insert(local_tile_coord, machine_entity);
     let local_tile_coord = LocalTileCoordinates { x: 1, y: 0 };
@@ -203,15 +235,14 @@ pub fn spawn_one_chunk(
         .spawn((
             Name::new("Crafting machine"),
             Structure,
-            // ProductionMachine::default(),
             Machine::default(),
             CraftingMachine::new(RecipeId::IronPlateToIronGear),
-            Sprite::from_image(asset_server.load("structures/machine.png")),
+            Sprite::from_image(asset_server.load(PATH_STRUCTURES_PNG.to_owned() + "/machine.png")),
             Direction::South,
             transform,
         ))
         .id();
-    structure_manager
+    structure_layer_manager
         .structures
         .insert(local_tile_coord, machine_entity);
 
@@ -246,7 +277,8 @@ pub fn spawn_one_chunk(
                 ..default()
             },
             TilemapChunkTileData(tile_data),
-            structure_manager,
+            structure_layer_manager,
+            source_layer_manager,
             chunk_transform,
         ))
         .id();
@@ -380,7 +412,7 @@ pub fn coord_to_chunk_coord(coord: Coordinates) -> ChunkCoordinates {
 
 fn spawn_chunks_around_units_system(
     unit_query: Query<&Transform, With<Unit>>,
-    chunk_query: Query<&StructureManager, With<TilemapChunk>>,
+    // chunk_query: Query<&StructureLayerManager, With<TilemapChunk>>,
     mut map_manager: ResMut<MapManager>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -398,7 +430,8 @@ fn spawn_chunks_around_units_system(
                 }
 
                 let mut rng = rand::rng();
-                let mut structure_manager = StructureManager::default();
+                let mut structure_layer_manager = StructureLayerManager::default();
+                let mut source_layer_manager = SourceLayerManager::default();
                 for x in 0..CHUNK_SIZE.x {
                     for y in 0..CHUNK_SIZE.y {
                         let local_tile_coord = LocalTileCoordinates {
@@ -407,7 +440,8 @@ fn spawn_chunks_around_units_system(
                         };
 
                         let is_wall = rng.random_bool(0.2);
-                        if is_wall && (local_tile_coord.x > 2) && (local_tile_coord.y > 2) {
+                        let is_resource = rng.random_bool(0.2);
+                        if (local_tile_coord.x > 2) && (local_tile_coord.y > 2) {
                             let tile_coord =
                                 local_tile_coord_to_tile_coord(local_tile_coord, chunk_coord);
                             let target_coord = tile_coord_to_absolute_coord(tile_coord);
@@ -416,20 +450,89 @@ fn spawn_chunks_around_units_system(
                                 target_coord.y,
                                 STRUCTURE_LAYER,
                             );
-                            let wall_entity = commands
-                                .spawn((
-                                    Structure,
-                                    Wall,
-                                    Sprite::from_image(asset_server.load("structures/wall.png")),
-                                    transform,
-                                ))
-                                .id();
-                            structure_manager
-                                .structures
-                                .insert(local_tile_coord, wall_entity);
+                            if is_wall {
+                                let wall_entity = commands
+                                    .spawn((
+                                        Structure,
+                                        Wall,
+                                        Sprite::from_image(
+                                            asset_server
+                                                .load(PATH_STRUCTURES_PNG.to_owned() + "/wall.png"),
+                                        ),
+                                        transform,
+                                    ))
+                                    .id();
+                                structure_layer_manager
+                                    .structures
+                                    .insert(local_tile_coord, wall_entity);
+                            } else if is_resource {
+                                let source_entity =
+                                    commands
+                                        .spawn((
+                                            Source,
+                                            IronOre,
+                                            Sprite::from_image(asset_server.load(
+                                                PATH_SOURCES_PNG.to_owned() + "/iron_ore.png",
+                                            )),
+                                            transform,
+                                        ))
+                                        .id();
+                                source_layer_manager
+                                    .sources
+                                    .insert(local_tile_coord, source_entity);
+                            }
                         }
                     }
                 }
+
+                let local_tile_coord = LocalTileCoordinates { x: 1, y: 1 };
+                let tile_coord = local_tile_coord_to_tile_coord(local_tile_coord, chunk_coord);
+                let target_coord = tile_coord_to_absolute_coord(tile_coord);
+                let transform =
+                    Transform::from_xyz(target_coord.x, target_coord.y, STRUCTURE_LAYER);
+                let mut machine = Machine::default();
+                let item_stack = ItemStack::new(ItemType::IronPlate, Quality::Perfect, 10);
+                machine
+                    .input_inventory
+                    .add_item_stack(item_stack)
+                    .expect("add_item_stack() didn't work");
+                let machine_entity = commands
+                    .spawn((
+                        Name::new("Belt machine"),
+                        Structure,
+                        machine,
+                        BeltMachine,
+                        Sprite::from_image(
+                            asset_server.load(PATH_STRUCTURES_PNG.to_owned() + "/machine.png"),
+                        ),
+                        Direction::North,
+                        transform,
+                    ))
+                    .id();
+                structure_layer_manager
+                    .structures
+                    .insert(local_tile_coord, machine_entity);
+                let local_tile_coord = LocalTileCoordinates { x: 1, y: 0 };
+                let tile_coord = local_tile_coord_to_tile_coord(local_tile_coord, chunk_coord);
+                let target_coord = tile_coord_to_absolute_coord(tile_coord);
+                let transform =
+                    Transform::from_xyz(target_coord.x, target_coord.y, STRUCTURE_LAYER);
+                let machine_entity = commands
+                    .spawn((
+                        Name::new("Crafting machine"),
+                        Structure,
+                        Machine::default(),
+                        CraftingMachine::new(RecipeId::IronPlateToIronGear),
+                        Sprite::from_image(
+                            asset_server.load(PATH_STRUCTURES_PNG.to_owned() + "/machine.png"),
+                        ),
+                        Direction::South,
+                        transform,
+                    ))
+                    .id();
+                structure_layer_manager
+                    .structures
+                    .insert(local_tile_coord, machine_entity);
 
                 message_recalculate.write_default();
 
@@ -467,7 +570,8 @@ fn spawn_chunks_around_units_system(
                             ..default()
                         },
                         TilemapChunkTileData(tile_data),
-                        structure_manager,
+                        structure_layer_manager,
+                        source_layer_manager,
                         chunk_transform,
                     ))
                     .id();
@@ -476,51 +580,3 @@ fn spawn_chunks_around_units_system(
         }
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-
-//     const EPS: f32 = 1e-6;
-
-//     fn approx_coord(a: AbsoluteCoordinates, b: AbsoluteCoordinates) -> bool {
-//         (a.x - b.x).abs() < EPS && (a.y - b.y).abs() < EPS
-//     }
-
-//     fn approx_tile(a: Coordinates, b: Coordinates) -> bool {
-//         (a.x - b.x).abs() < EPS && (a.y - b.y).abs() < EPS
-//     }
-
-//     #[test]
-//     fn local_tile_coord_to_tile_coord_test() {
-//         let chunk_coord = ChunkCoordinates { x: 0, y: 0 };
-
-//         let tile_coord =
-//             local_tile_coord_to_tile_coord(TileCoordinates { x: 0, y: 0 }, chunk_coord);
-//         assert_eq!(tile_coord, TileCoordinates { x: 0, y: 0 });
-//         let tile_coord =
-//             local_tile_coord_to_tile_coord(TileCoordinates { x: 2, y: 2 }, chunk_coord);
-//         assert_eq!(tile_coord, TileCoordinates { x: 2, y: 2 });
-
-//         let chunk_coord = ChunkCoordinates { x: 2, y: 2 };
-
-//         let tile_coord =
-//             local_tile_coord_to_tile_coord(TileCoordinates { x: 0, y: 0 }, chunk_coord);
-//         assert_eq!(
-//             tile_coord,
-//             TileCoordinates {
-//                 x: 2 * CHUNK_SIZE.x as i32,
-//                 y: 2 * CHUNK_SIZE.y as i32
-//             }
-//         );
-//         let tile_coord =
-//             local_tile_coord_to_tile_coord(TileCoordinates { x: 2, y: 2 }, chunk_coord);
-//         assert_eq!(
-//             tile_coord,
-//             TileCoordinates {
-//                 x: 2 * CHUNK_SIZE.x as i32 + 2,
-//                 y: 2 * CHUNK_SIZE.y as i32 + 2
-//             }
-//         );
-//     }
-// }

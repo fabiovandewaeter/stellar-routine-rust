@@ -1,5 +1,5 @@
 use crate::{
-    map::{MapManager, StructureManager, TileCoordinates, absolute_coord_to_tile_coord},
+    map::{MapManager, StructureLayerManager, TileCoordinates, absolute_coord_to_tile_coord},
     units::Player,
 };
 use bevy::{prelude::*, sprite_render::TilemapChunk};
@@ -30,7 +30,7 @@ pub fn calculate_flow_field_system(
     mut flow_field: ResMut<FlowField>,
     map_manager: Res<MapManager>,
     player_query: Query<&Transform, With<Player>>,
-    chunk_query: Query<&StructureManager, With<TilemapChunk>>,
+    chunk_query: Query<&StructureLayerManager, With<TilemapChunk>>,
 ) {
     if message_recalculate.is_empty() {
         return;

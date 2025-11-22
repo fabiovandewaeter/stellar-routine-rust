@@ -4,7 +4,9 @@ use crate::{
         inventory::Inventory,
         recipe::{RecipeBook, RecipeId},
     },
-    map::{MapManager, Structure, StructureManager, TileCoordinates, absolute_coord_to_tile_coord},
+    map::{
+        MapManager, Structure, StructureLayerManager, TileCoordinates, absolute_coord_to_tile_coord,
+    },
     units::Direction,
 };
 use bevy::{prelude::*, sprite_render::TilemapChunk};
@@ -152,7 +154,7 @@ pub fn process_belt_machines_system(mut machine_query: Query<&mut Machine, With<
 
 pub fn transfert_items_to_next_machine_system(
     mut machine_query: Query<(Entity, &Transform, &mut Machine, &Direction)>,
-    chunk_query: Query<&StructureManager, With<TilemapChunk>>,
+    chunk_query: Query<&StructureLayerManager, With<TilemapChunk>>,
     map_manager: Res<MapManager>,
 ) {
     // we find all transfer pairs
