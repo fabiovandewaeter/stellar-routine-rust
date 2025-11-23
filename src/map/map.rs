@@ -136,23 +136,35 @@ impl MapManager {
 }
 
 #[derive(Component, Default)]
-#[require(
-    RigidBody::Static,
-    Collider::rectangle(TILE_SIZE.x, TILE_SIZE.y),
-    Friction {
-        dynamic_coefficient: 0.0,
-        static_coefficient: 0.0,
-        combine_rule: CoefficientCombine::Multiply,
-    },
-)]
 pub struct Structure;
+#[derive(Bundle)]
+pub struct StructureBundle {
+    pub rigid_body: RigidBody,
+    pub collider: Collider,
+    pub friction: Friction,
+    pub transform: Transform,
+    pub structure: Structure,
+}
+impl StructureBundle {
+    fn new(transform: Transform) -> Self {
+        Self {
+            rigid_body: RigidBody::Static,
+            collider: Collider::rectangle(TILE_SIZE.x, TILE_SIZE.y),
+            friction: Friction {
+                dynamic_coefficient: 0.0,
+                static_coefficient: 0.0,
+                combine_rule: CoefficientCombine::Multiply,
+            },
+            transform,
+            structure: Structure,
+        }
+    }
+}
 #[derive(Component)]
 pub struct Wall;
 
 #[derive(Component)]
 pub struct Source(pub ItemStack);
-// #[derive(Component)]
-// pub struct IronOre();
 
 pub fn spawn_one_chunk(
     mut commands: Commands,
@@ -179,14 +191,14 @@ pub fn spawn_one_chunk(
                 if is_wall {
                     let transform =
                         Transform::from_xyz(target_coord.x, target_coord.y, STRUCTURE_LAYER);
+                    let bundle = StructureBundle::new(transform);
                     let wall_entity = commands
                         .spawn((
-                            Structure,
+                            bundle,
                             Wall,
                             Sprite::from_image(
                                 asset_server.load(PATH_STRUCTURES_PNG.to_owned() + "wall.png"),
                             ),
-                            transform,
                         ))
                         .id();
                     structure_layer_manager
@@ -231,9 +243,10 @@ pub fn spawn_one_chunk(
     let bundle = BeltMachineBundle {
         base: MachineBaseBundle {
             name: Name::new("Belt machine"),
-            structure: Structure,
+            // structure: Structure,
+            structure_bundle: StructureBundle::new(transform),
             direction: Direction::North,
-            transform,
+            // transform,
             machine: Machine::default(),
         },
         input_inventory,
@@ -258,9 +271,10 @@ pub fn spawn_one_chunk(
     let bundle = CraftingMachineBundle {
         base: MachineBaseBundle {
             name: Name::new("Crafting machine"),
-            structure: Structure,
+            // structure: Structure,
+            structure_bundle: StructureBundle::new(transform),
             direction: Direction::South,
-            transform,
+            // transform,
             machine: Machine::default(),
         },
         input_inventory: InputInventory::default(),
@@ -484,15 +498,15 @@ fn spawn_chunks_around_units_system(
                                     target_coord.y,
                                     STRUCTURE_LAYER,
                                 );
+                                let bundle = StructureBundle::new(transform);
                                 let wall_entity = commands
                                     .spawn((
-                                        Structure,
+                                        bundle,
                                         Wall,
                                         Sprite::from_image(
                                             asset_server
                                                 .load(PATH_STRUCTURES_PNG.to_owned() + "wall.png"),
                                         ),
-                                        transform,
                                     ))
                                     .id();
                                 structure_layer_manager
@@ -529,9 +543,10 @@ fn spawn_chunks_around_units_system(
                                     let bundle = MiningMachineBundle {
                                         base: MachineBaseBundle {
                                             name: Name::new("Mining machine"),
-                                            structure: Structure,
+                                            // structure: Structure,
+                                            structure_bundle: StructureBundle::new(transform),
                                             direction: Direction::North,
-                                            transform,
+                                            // transform,
                                             machine: Machine::default(),
                                         },
                                         output_inventory: OutputInventory::default(),
@@ -569,9 +584,10 @@ fn spawn_chunks_around_units_system(
                 let bundle = BeltMachineBundle {
                     base: MachineBaseBundle {
                         name: Name::new("Belt machine"),
-                        structure: Structure,
+                        // structure: Structure,
+                        structure_bundle: StructureBundle::new(transform),
                         direction: Direction::North,
-                        transform,
+                        // transform,
                         machine: Machine::default(),
                     },
                     input_inventory,
@@ -597,9 +613,10 @@ fn spawn_chunks_around_units_system(
                 let bundle = CraftingMachineBundle {
                     base: MachineBaseBundle {
                         name: Name::new("Crafting machine"),
-                        structure: Structure,
+                        // structure: Structure,
+                        structure_bundle: StructureBundle::new(transform),
                         direction: Direction::South,
-                        transform,
+                        // transform,
                         machine: Machine::default(),
                     },
                     input_inventory: InputInventory::default(),

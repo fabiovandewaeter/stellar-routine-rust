@@ -9,7 +9,7 @@ use stellar_routine_rust::{
     items::recipe::RecipeBook,
     map::{Coordinates, MapPlugin, coord_to_absolute_coord, machine::MachinePlugin},
     units::{
-        Player, Speed, UNIT_DEFAULT_MOVEMENT_SPEED, UNIT_LAYER, Unit, UnitsPlugin,
+        Player, Speed, UNIT_DEFAULT_MOVEMENT_SPEED, UNIT_LAYER, Unit, UnitBundle, UnitsPlugin,
         pathfinding::PathfindingPlugin,
     },
 };
@@ -76,13 +76,11 @@ fn setup_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     let mut transform =
         Transform::from_xyz(absolute_coordinates.x, absolute_coordinates.y, UNIT_LAYER);
     transform.scale *= 0.8;
+    let bundle = UnitBundle::new(Name::new("Player"), transform, speed);
     commands.spawn((
-        Unit,
-        Name::new("Player"),
+        bundle,
         Sprite::from_image(player_texture_handle.clone()),
-        transform,
         Player,
-        speed,
     ));
 
     let coordinates = Coordinates { x: 5.0, y: 5.0 };
@@ -90,13 +88,12 @@ fn setup_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     let mut transform =
         Transform::from_xyz(absolute_coordinates.x, absolute_coordinates.y, UNIT_LAYER);
     transform.scale *= 0.8;
-    commands.spawn((
-        Unit,
+    let bundle = UnitBundle::new(
         Name::new("Monstre"),
-        Sprite::from_image(player_texture_handle.clone()),
         transform,
         Speed(UNIT_DEFAULT_MOVEMENT_SPEED * 20.0),
-    ));
+    );
+    commands.spawn((bundle, Sprite::from_image(player_texture_handle.clone())));
 }
 
 pub fn update_logic_system(mut counter: ResMut<UpsCounter>) {

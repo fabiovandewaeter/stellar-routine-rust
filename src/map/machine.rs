@@ -5,7 +5,8 @@ use crate::{
         recipe::{RecipeBook, RecipeId},
     },
     map::{
-        MapManager, Structure, StructureLayerManager, TileCoordinates, absolute_coord_to_tile_coord,
+        MapManager, Structure, StructureBundle, StructureLayerManager, TileCoordinates,
+        absolute_coord_to_tile_coord,
     },
     units::Direction,
 };
@@ -49,13 +50,13 @@ impl Default for Machine {
         }
     }
 }
-
 #[derive(Bundle)]
 pub struct MachineBaseBundle {
     pub name: Name,
-    pub structure: Structure,
+    // pub structure_bundle: Structure,
+    pub structure_bundle: StructureBundle,
     pub direction: Direction,
-    pub transform: Transform,
+    // pub transform: Transform,
     pub machine: Machine,
 }
 

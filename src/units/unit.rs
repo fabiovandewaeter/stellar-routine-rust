@@ -33,25 +33,64 @@ impl Plugin for UnitsPlugin {
 }
 
 #[derive(Component, Debug, Default)]
-#[require(
-    Name,
-    Sprite,
-    Transform,
-    Direction,
-    Speed,
-    RigidBody::Dynamic,
-    Collider::circle(UNIT_DEFAULT_SIZE / 2.0),
-    LinearVelocity::ZERO,
-    LockedAxes::ROTATION_LOCKED,
-    Friction {
-        dynamic_coefficient: 0.0,
-        static_coefficient: 0.0,
-        combine_rule: CoefficientCombine::Multiply,
-    },
-    TranslationInterpolation,
-    LinearDamping(20.0)
-)]
+// #[require(
+//     Name,
+//     Sprite,
+//     Transform,
+//     Direction,
+//     Speed,
+//     RigidBody::Dynamic,
+//     Collider::circle(UNIT_DEFAULT_SIZE / 2.0),
+//     LinearVelocity::ZERO,
+//     LockedAxes::ROTATION_LOCKED,
+//     Friction {
+//         dynamic_coefficient: 0.0,
+//         static_coefficient: 0.0,
+//         combine_rule: CoefficientCombine::Multiply,
+//     },
+//     TranslationInterpolation,
+//     LinearDamping(20.0)
+// )]
 pub struct Unit;
+#[derive(Bundle)]
+pub struct UnitBundle {
+    pub name: Name,
+    pub transform: Transform,
+    pub direction: Direction,
+    pub speed: Speed,
+    pub rigid_body: RigidBody,
+    pub collider: Collider,
+    pub linear_velocity: LinearVelocity,
+    pub locked_axes: LockedAxes,
+    pub friction: Friction,
+    pub translation_interpolation: TranslationInterpolation,
+    pub linear_damping: LinearDamping,
+    pub unit: Unit,
+}
+impl UnitBundle {
+    pub fn new(name: Name, transform: Transform, speed: Speed) -> Self {
+        Self {
+            name,
+            transform,
+            direction: Direction::East,
+            speed,
+            rigid_body: RigidBody::Dynamic,
+            collider: Collider::circle(UNIT_DEFAULT_SIZE / 2.0),
+            linear_velocity: LinearVelocity::ZERO,
+            locked_axes: LockedAxes::ROTATION_LOCKED,
+            friction: Friction {
+                dynamic_coefficient: 0.0,
+                static_coefficient: 0.0,
+                combine_rule: CoefficientCombine::Multiply,
+            },
+            translation_interpolation: TranslationInterpolation,
+            linear_damping: LinearDamping(20.0),
+            unit: Unit,
+        }
+    }
+}
+#[derive(Component)]
+pub struct Player;
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
@@ -84,9 +123,6 @@ impl Default for Speed {
         Self(UNIT_DEFAULT_MOVEMENT_SPEED)
     }
 }
-
-#[derive(Component)]
-pub struct Player;
 
 pub fn player_control_system(
     mut unit_query: Query<(&mut LinearVelocity, &mut Direction, &Speed), With<Player>>,
