@@ -103,6 +103,10 @@ impl Default for Inventory {
         }
     }
 }
+#[derive(Component, Default)]
+pub struct InputInventory(pub Inventory);
+#[derive(Component, Default)]
+pub struct OutputInventory(pub Inventory);
 
 #[cfg(test)]
 mod tests {
@@ -331,3 +335,4 @@ mod tests {
         assert_eq!(inventory.slots.get(0).unwrap().quantity, 1);
     }
 }
+// REGARDER pourquoi ça ajouter pas d'items dans l'output des mining machine

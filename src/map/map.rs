@@ -1,6 +1,13 @@
 use crate::{
-    items::{ItemType, Quality, inventory::ItemStack, recipe::RecipeId},
-    map::machine::{BeltMachine, CraftingMachine, Machine, MiningMachine},
+    items::{
+        ItemType, Quality,
+        inventory::{InputInventory, ItemStack, OutputInventory},
+        recipe::RecipeId,
+    },
+    map::machine::{
+        BeltMachine, BeltMachineBundle, CraftingMachine, CraftingMachineBundle, Machine,
+        MachineBaseBundle, MiningMachine, MiningMachineBundle,
+    },
     units::{Direction, Unit, pathfinding::RecalculateFlowField},
 };
 use avian2d::prelude::{CoefficientCombine, Collider, Friction, RigidBody};
@@ -215,23 +222,30 @@ pub fn spawn_one_chunk(
     let tile_coord = local_tile_coord_to_tile_coord(local_tile_coord, chunk_coord);
     let target_coord = tile_coord_to_absolute_coord(tile_coord);
     let transform = Transform::from_xyz(target_coord.x, target_coord.y, STRUCTURE_LAYER);
-    let mut machine = Machine::default();
     let item_stack = ItemStack::new(ItemType::IronPlate, Quality::Perfect, 10);
-    machine
-        .input_inventory
+    let mut input_inventory = InputInventory::default();
+    input_inventory
+        .0
         .add(item_stack)
         .expect("add_item_stack() didn't work");
+    let bundle = BeltMachineBundle {
+        base: MachineBaseBundle {
+            name: Name::new("Belt machine"),
+            structure: Structure,
+            direction: Direction::North,
+            transform,
+            machine: Machine::default(),
+        },
+        input_inventory,
+        output_inventory: OutputInventory::default(),
+        belt_machine: BeltMachine,
+    };
     let machine_entity = commands
         .spawn((
-            Name::new("Belt machine"),
-            Structure,
-            machine,
-            BeltMachine,
+            bundle,
             Sprite::from_image(
                 asset_server.load(PATH_STRUCTURES_PNG.to_owned() + "belt_machine.png"),
             ),
-            Direction::North,
-            transform,
         ))
         .id();
     structure_layer_manager
@@ -241,17 +255,24 @@ pub fn spawn_one_chunk(
     let tile_coord = local_tile_coord_to_tile_coord(local_tile_coord, chunk_coord);
     let target_coord = tile_coord_to_absolute_coord(tile_coord);
     let transform = Transform::from_xyz(target_coord.x, target_coord.y, STRUCTURE_LAYER);
+    let bundle = CraftingMachineBundle {
+        base: MachineBaseBundle {
+            name: Name::new("Crafting machine"),
+            structure: Structure,
+            direction: Direction::South,
+            transform,
+            machine: Machine::default(),
+        },
+        input_inventory: InputInventory::default(),
+        output_inventory: OutputInventory::default(),
+        crafting_machine: CraftingMachine::new(RecipeId::IronPlateToIronGear),
+    };
     let machine_entity = commands
         .spawn((
-            Name::new("Crafting machine"),
-            Structure,
-            Machine::default(),
-            CraftingMachine::new(RecipeId::IronPlateToIronGear),
+            bundle,
             Sprite::from_image(
                 asset_server.load(PATH_STRUCTURES_PNG.to_owned() + "crafting_machine.png"),
             ),
-            Direction::South,
-            transform,
         ))
         .id();
     structure_layer_manager
@@ -505,19 +526,24 @@ fn spawn_chunks_around_units_system(
                                     .insert(local_tile_coord, source_entity);
 
                                 if local_tile_coord.x < 5 && local_tile_coord.y < 5 {
-                                    let machine = Machine::default();
+                                    let bundle = MiningMachineBundle {
+                                        base: MachineBaseBundle {
+                                            name: Name::new("Mining machine"),
+                                            structure: Structure,
+                                            direction: Direction::North,
+                                            transform,
+                                            machine: Machine::default(),
+                                        },
+                                        output_inventory: OutputInventory::default(),
+                                        mining_machine: MiningMachine::new(item_stack),
+                                    };
                                     let machine_entity = commands
                                         .spawn((
-                                            Name::new("Mining machine"),
-                                            Structure,
-                                            machine,
-                                            MiningMachine::new(item_stack),
+                                            bundle,
                                             Sprite::from_image(asset_server.load(
                                                 PATH_STRUCTURES_PNG.to_owned()
                                                     + "mining_machine.png",
                                             )),
-                                            Direction::North,
-                                            transform,
                                         ))
                                         .id();
                                     structure_layer_manager
@@ -534,23 +560,30 @@ fn spawn_chunks_around_units_system(
                 let target_coord = tile_coord_to_absolute_coord(tile_coord);
                 let transform =
                     Transform::from_xyz(target_coord.x, target_coord.y, STRUCTURE_LAYER);
-                let mut machine = Machine::default();
                 let item_stack = ItemStack::new(ItemType::IronPlate, Quality::Perfect, 10);
-                machine
-                    .input_inventory
+                let mut input_inventory = InputInventory::default();
+                input_inventory
+                    .0
                     .add(item_stack)
                     .expect("add_item_stack() didn't work");
+                let bundle = BeltMachineBundle {
+                    base: MachineBaseBundle {
+                        name: Name::new("Belt machine"),
+                        structure: Structure,
+                        direction: Direction::North,
+                        transform,
+                        machine: Machine::default(),
+                    },
+                    input_inventory,
+                    output_inventory: OutputInventory::default(),
+                    belt_machine: BeltMachine,
+                };
                 let machine_entity = commands
                     .spawn((
-                        Name::new("Belt machine"),
-                        Structure,
-                        machine,
-                        BeltMachine,
+                        bundle,
                         Sprite::from_image(
                             asset_server.load(PATH_STRUCTURES_PNG.to_owned() + "belt_machine.png"),
                         ),
-                        Direction::North,
-                        transform,
                     ))
                     .id();
                 structure_layer_manager
@@ -561,18 +594,25 @@ fn spawn_chunks_around_units_system(
                 let target_coord = tile_coord_to_absolute_coord(tile_coord);
                 let transform =
                     Transform::from_xyz(target_coord.x, target_coord.y, STRUCTURE_LAYER);
+                let bundle = CraftingMachineBundle {
+                    base: MachineBaseBundle {
+                        name: Name::new("Crafting machine"),
+                        structure: Structure,
+                        direction: Direction::South,
+                        transform,
+                        machine: Machine::default(),
+                    },
+                    input_inventory: InputInventory::default(),
+                    output_inventory: OutputInventory::default(),
+                    crafting_machine: CraftingMachine::new(RecipeId::IronPlateToIronGear),
+                };
                 let machine_entity = commands
                     .spawn((
-                        Name::new("Crafting machine"),
-                        Structure,
-                        Machine::default(),
-                        CraftingMachine::new(RecipeId::IronPlateToIronGear),
+                        bundle,
                         Sprite::from_image(
                             asset_server
                                 .load(PATH_STRUCTURES_PNG.to_owned() + "crafting_machine.png"),
                         ),
-                        Direction::South,
-                        transform,
                     ))
                     .id();
                 structure_layer_manager
