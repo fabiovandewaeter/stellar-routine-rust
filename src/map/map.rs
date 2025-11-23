@@ -1,5 +1,5 @@
 use crate::{
-    items::{ItemStack, ItemType, Quality, recipe::RecipeId},
+    items::{ItemType, Quality, inventory::ItemStack, recipe::RecipeId},
     map::machine::{BeltMachine, CraftingMachine, Machine, MiningMachine},
     units::{Direction, Unit, pathfinding::RecalculateFlowField},
 };
@@ -219,7 +219,7 @@ pub fn spawn_one_chunk(
     let item_stack = ItemStack::new(ItemType::IronPlate, Quality::Perfect, 10);
     machine
         .input_inventory
-        .add_item_stack(item_stack)
+        .add(item_stack)
         .expect("add_item_stack() didn't work");
     let machine_entity = commands
         .spawn((
@@ -538,7 +538,7 @@ fn spawn_chunks_around_units_system(
                 let item_stack = ItemStack::new(ItemType::IronPlate, Quality::Perfect, 10);
                 machine
                     .input_inventory
-                    .add_item_stack(item_stack)
+                    .add(item_stack)
                     .expect("add_item_stack() didn't work");
                 let machine_entity = commands
                     .spawn((

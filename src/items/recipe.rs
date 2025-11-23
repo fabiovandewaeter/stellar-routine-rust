@@ -1,5 +1,5 @@
 use crate::{
-    items::{ItemStack, ItemType, Quality},
+    items::{ItemType, Quality, inventory::ItemStack},
     map::machine::DEFAULT_ACTION_TIME_TICKS,
 };
 use bevy::ecs::resource::Resource;

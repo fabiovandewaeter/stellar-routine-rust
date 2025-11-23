@@ -1,8 +1,7 @@
 use crate::{
     UPS_TARGET,
     items::{
-        ItemStack,
-        inventory::Inventory,
+        inventory::{Inventory, ItemStack},
         recipe::{RecipeBook, RecipeId},
     },
     map::{
@@ -101,7 +100,7 @@ pub fn process_belt_machines_system(mut machine_query: Query<&mut Machine, With<
         if machine.action_progress_ticks >= machine.action_time_ticks {
             let item_stacks = machine.input_inventory.remove_all_item_stack();
             for item_stack in item_stacks {
-                machine.output_inventory.add_item_stack(item_stack).expect(
+                machine.output_inventory.add(item_stack).expect(
                     "process_belt_machines_system(): transfer to output_inventory didn't work",
                 );
             }
@@ -137,7 +136,7 @@ pub fn process_crafting_machines_system(
             for item_stack in &recipe.outputs {
                 machine
                     .output_inventory
-                    .add_item_stack(*item_stack)
+                    .add(*item_stack)
                     .expect("add_item_stack() didn't work");
             }
             machine.action_progress_ticks = 0;
@@ -147,10 +146,7 @@ pub fn process_crafting_machines_system(
         if machine.action_progress_ticks == 0 {
             let mut items_present = true;
             for item_stack in &recipe.inputs {
-                if !machine
-                    .input_inventory
-                    .enough_quantity(item_stack.item_type, item_stack.quantity)
-                {
+                if !machine.input_inventory.enough_quantity(*item_stack) {
                     items_present = false;
                     break;
                 }
@@ -160,9 +156,7 @@ pub fn process_crafting_machines_system(
             }
             // consumes the input items
             for item_stack in &recipe.inputs {
-                machine
-                    .input_inventory
-                    .remove_quantity(item_stack.item_type, item_stack.quantity);
+                machine.input_inventory.remove_quantity(*item_stack);
             }
 
             // reset the crafting machine
@@ -184,21 +178,22 @@ pub fn process_mining_machines_system(mut machine_query: Query<(&mut Machine, &M
 
         if machine.action_progress_ticks >= machine.action_time_ticks {
             let new_item_stack = mined_item.clone();
-            machine
-                .output_inventory
-                .add_item_stack(new_item_stack)
-                .expect(
-                    "process_mining_machines_system(): transfer to output_inventory didn't work",
-                );
+            machine.output_inventory.add(new_item_stack).expect(
+                "process_mining_machines_system(): transfer to output_inventory didn't work",
+            );
             machine.action_progress_ticks = 0;
         }
 
-        // start if previous action finised
-        if machine.action_progress_ticks == 0 {
-            machine.action_time_ticks =
-                (DEFAULT_ACTION_TIME_TICKS as f32 / machine.action_speed) as u64;
-            // TODO: see if need to change to 0
-            machine.action_progress_ticks = 1;
+        // start if previous action finised and if there is still room for more items
+        if let Some(mined_item) = mining_machine.mined_item {
+            if machine.action_progress_ticks == 0
+                && machine.output_inventory.enough_room(mined_item)
+            {
+                machine.action_time_ticks =
+                    (DEFAULT_ACTION_TIME_TICKS as f32 / machine.action_speed) as u64;
+                // TODO: see if need to change to 0
+                machine.action_progress_ticks = 1;
+            }
         } else if machine.action_progress_ticks > 0 {
             machine.action_progress_ticks += 1;
         }
@@ -237,14 +232,10 @@ pub fn transfert_items_to_next_machine_system(
 
         let item_stacks = source_machine.output_inventory.remove_all_item_stack();
         for item_stack in item_stacks {
-            if !target_machine
-                .input_inventory
-                .add_item_stack(item_stack)
-                .is_ok()
-            {
+            if !target_machine.input_inventory.add(item_stack).is_ok() {
                 source_machine
                     .output_inventory
-                    .add_item_stack(item_stack)
+                    .add(item_stack)
                     .expect("transfer didn't work and couldn't add items back in source_machine");
             }
         }
