@@ -5,7 +5,7 @@ use crate::{
         recipe::{RecipeBook, RecipeId},
     },
     map::{
-        MapManager, Structure, StructureBundle, StructureLayerManager, TileCoordinates,
+        MapManager, StructureBundle, StructureLayerManager, TileCoordinates,
         absolute_coord_to_tile_coord,
     },
     units::Direction,
@@ -250,15 +250,7 @@ pub fn transfert_items_to_next_machine_system(
 ) {
     // we find all transfer pairs
     let mut transfer_pairs = Vec::new();
-    for (
-        source_machine_entity,
-        transform,
-        _,
-        direction,
-        mut input_inventory,
-        mut output_inventory,
-    ) in machine_query.iter()
-    {
+    for (source_machine_entity, transform, _, direction, _, _) in machine_query.iter() {
         let source_tile = absolute_coord_to_tile_coord((*transform).into());
         let delta = direction.direction_to_vec2();
         let target_tile = TileCoordinates {

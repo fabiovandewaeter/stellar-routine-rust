@@ -1,20 +1,19 @@
 use avian2d::prelude::*;
 use bevy::{diagnostic::FrameTimeDiagnosticsPlugin, prelude::*};
 use stellar_routine_rust::{
-    UPS_TARGET,
+    LENGTH_UNIT, UPS_TARGET,
     camera::{
         CameraMovement, CameraMovementKind, UpsCounter, display_fps_ups_system,
         handle_camera_inputs_system,
     },
     items::recipe::RecipeBook,
     map::{Coordinates, MapPlugin, coord_to_absolute_coord, machine::MachinePlugin},
+    save::SavePlugin,
     units::{
-        Player, Speed, UNIT_DEFAULT_MOVEMENT_SPEED, UNIT_LAYER, Unit, UnitBundle, UnitsPlugin,
+        Player, Speed, UNIT_DEFAULT_MOVEMENT_SPEED, UNIT_LAYER, UnitBundle, UnitsPlugin,
         pathfinding::PathfindingPlugin,
     },
 };
-
-const LENGTH_UNIT: f32 = 16.0;
 
 fn main() {
     App::new()
@@ -36,6 +35,7 @@ fn main() {
         .add_plugins(MapPlugin)
         .add_plugins(PathfindingPlugin)
         .add_plugins(MachinePlugin)
+        .add_plugins(SavePlugin)
         .insert_resource(Gravity(Vec2::ZERO))
         // .insert_resource(TimeState::default())
         .insert_resource(UpsCounter {

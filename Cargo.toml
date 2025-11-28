@@ -4,16 +4,17 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = { version = "0.17.2", features = ["trace"] }
+bevy = { version = "0.17.2", features = ["trace", "serialize"] }
 bevy_egui = "0.36.0"
 log = { version = "*", features = [
     "max_level_debug",
     "release_max_level_warn",
 ] }
 rand = "0.9.2"
-serde = "1.0.225"
-avian2d = "0.4"
+avian2d = { version = "0.4", features = ["serialize"] }
 pathfinding = "4.14.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.145"
 
 [profile.dev]
 opt-level = 1

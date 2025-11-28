@@ -1,5 +1,6 @@
 use crate::items::{ItemType, Quality};
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::mem::replace;
 
 // const DEFAULT_ITEM_STACK_LIMIT: u32 = 10000;
@@ -7,7 +8,7 @@ use std::mem::replace;
 const DEFAULT_ITEM_STACK_LIMIT: u32 = 10;
 const DEFAULT_INVENTORY_SLOTS_QUANTITY_LIMIT: u32 = 5;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ItemStack {
     pub item_type: ItemType,
     pub quality: Quality,
@@ -29,7 +30,7 @@ impl ItemStack {
     }
 }
 
-#[derive(Component)]
+#[derive(Debug, Clone, Component, Serialize, Deserialize)]
 pub struct Inventory {
     pub slots: Vec<ItemStack>,
     pub slots_quantity_limit: u32,
